@@ -13,7 +13,7 @@ A Next.js app where you ask plain-English questions about US-listed common stock
 | 1. Research, architecture, formulas | ✅ Approved, see [`docs/phase-1-proposal.md`](docs/phase-1-proposal.md) |
 | 2. Project setup | ✅ Done: Next.js, TypeScript, Tailwind, shadcn/ui, env validation, test runner |
 | 3. Financial API integration | ⏳ Not started (needs your API keys to verify real responses) |
-| 4. Calculation engine | ⏳ Not started |
+| 4. Calculation engine | ✅ Done: `lib/analysis/` (indicators, direction, target range, sentiment, confidence) with unit tests |
 | 5. Gemini integration | ⏳ Not started |
 | 6. Chat interface | ⏳ Not started |
 | 7. Redis, rate limits, debug dashboard, auth | ⏳ Not started |
@@ -73,6 +73,7 @@ app/              pages and (later) API routes
 components/ui/    shadcn/ui building blocks (Button, Card, Input, Badge, Label)
 lib/env.ts        validates every environment variable on the server
 lib/utils.ts      `cn()` helper for combining Tailwind classes
+lib/analysis/     deterministic calculations: indicators, direction, target range, sentiment, confidence
 tests/            Vitest tests
 docs/             Phase 1 proposal (architecture, providers, formulas)
 ```
