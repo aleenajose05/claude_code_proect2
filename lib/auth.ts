@@ -59,13 +59,14 @@ export function sessionCookie(scope: AuthScope, token: string, secure: boolean) 
 }
 
 /**
- * Client identifier for rate limiting. On Vercel, x-real-ip / x-forwarded-for are set by the
- * platform edge (client-supplied values are overwritten). The IP is hashed before use as a key.
+ * Client identifier for rate limiting. Vercel documents that it overwrites x-forwarded-for
+ * (so clients cannot spoof it) and that the leftmost entry is the real client IP when Vercel
+ * is the outermost edge. x-real-ip is only a fallback. The IP is hashed before use as a key.
  */
 export function clientId(headers: Headers, secret: string): string {
   const ip =
-    headers.get("x-real-ip")?.trim() ||
     headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    headers.get("x-real-ip")?.trim() ||
     "unknown";
   return createHmac("sha256", secret).update(`client:${ip}`).digest("hex").slice(0, 32);
 }
