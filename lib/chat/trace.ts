@@ -17,7 +17,7 @@ export class Trace {
   tokens = { prompt: 0, output: 0, total: 0 };
   validation: "PASSED" | "PASSED_AFTER_RETRY" | "FALLBACK" | "NOT_RUN" = "NOT_RUN";
 
-  constructor(private readonly onStep?: (step: TraceStep) => void) {}
+  constructor(public onStep?: (step: TraceStep) => void) {}
 
   mark(name: string, detail?: string, status: TraceStep["status"] = "info") {
     this.push({ name, at: new Date().toISOString(), durationMs: null, status, detail });

@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import type { Candle } from "@/lib/analysis/types";
 import { AppError } from "@/lib/errors";
-import { fetchJson } from "./http";
+import { fetchJson, type ClientOptions } from "./http";
 
 /**
  * Alpha Vantage fallback (https://www.alphavantage.co/documentation/).
@@ -74,14 +74,14 @@ function num(value: string | undefined): number {
 export class AlphaVantageClient {
   constructor(
     private readonly apiKey: string,
-    private readonly signal?: AbortSignal,
+    private readonly options: ClientOptions = {},
   ) {}
 
   private request<T>(params: Record<string, string>, schema: z.ZodType<T>) {
     const url = new URL("https://www.alphavantage.co/query");
     for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
     url.searchParams.set("apikey", this.apiKey);
-    return fetchJson({ provider: ALPHA_VANTAGE, url, schema, signal: this.signal }) as Promise<T>;
+    return fetchJson({ provider: ALPHA_VANTAGE, url, schema, ...this.options }) as Promise<T>;
   }
 
   /** null when the symbol is unknown. */

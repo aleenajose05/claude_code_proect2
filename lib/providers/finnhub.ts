@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 
-import { fetchJson } from "./http";
+import { fetchJson, type ClientOptions } from "./http";
 
 /**
  * Finnhub REST client (free plan endpoints only).
@@ -66,7 +66,7 @@ export type FinnhubNewsItem = z.infer<typeof newsSchema>[number];
 export class FinnhubClient {
   constructor(
     private readonly apiKey: string,
-    private readonly signal?: AbortSignal,
+    private readonly options: ClientOptions = {},
   ) {}
 
   private get<T>(path: string, params: Record<string, string>, schema: z.ZodType<T>) {
@@ -77,7 +77,7 @@ export class FinnhubClient {
       url,
       schema,
       headers: { "X-Finnhub-Token": this.apiKey },
-      signal: this.signal,
+      ...this.options,
     }) as Promise<T>;
   }
 

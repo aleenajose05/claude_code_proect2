@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 
 import type { Candle } from "@/lib/analysis/types";
-import { fetchJson } from "./http";
+import { fetchJson, type ClientOptions } from "./http";
 
 /**
  * Tiingo end-of-day prices (https://www.tiingo.com/documentation/end-of-day).
@@ -25,7 +25,7 @@ const pricesSchema = z.array(
 export class TiingoClient {
   constructor(
     private readonly apiKey: string,
-    private readonly signal?: AbortSignal,
+    private readonly options: ClientOptions = {},
   ) {}
 
   /** Adjusted daily candles, or null when Tiingo does not know the ticker (HTTP 404). */
@@ -39,7 +39,7 @@ export class TiingoClient {
       url,
       schema: pricesSchema,
       headers: { Authorization: `Token ${this.apiKey}` },
-      signal: this.signal,
+      ...this.options,
       nullOnStatus: [404],
     });
     if (rows === null) return null;

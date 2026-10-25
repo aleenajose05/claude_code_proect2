@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { CacheStatus, StockAnalysis } from "@/lib/analysis/build";
+import type { TraceStep } from "./trace";
 import type { Explanation } from "@/lib/llm/schema";
 import { tickerSchema } from "@/lib/tools/schemas";
 
@@ -52,3 +53,8 @@ export interface CacheReport {
   key: string;
   status: CacheStatus;
 }
+
+/** NDJSON stream from /api/chat: progress steps as they really happen, then exactly one result line. */
+export type ChatStreamEvent =
+  | { type: "step"; step: TraceStep }
+  | { type: "result"; requestId: string; result: ChatResult };

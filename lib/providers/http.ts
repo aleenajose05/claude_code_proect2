@@ -14,6 +14,15 @@ export interface FetchJsonOptions<T> {
   signal?: AbortSignal;
   /** Status codes that should resolve to `null` instead of throwing (e.g. 404 for unknown tickers). */
   nullOnStatus?: number[];
+  /** Called before the request; throws PROVIDER_QUOTA when the app's own provider budget is spent. */
+  guard?: ProviderGuard;
+}
+
+export type ProviderGuard = (provider: string) => Promise<void>;
+
+export interface ClientOptions {
+  signal?: AbortSignal;
+  guard?: ProviderGuard;
 }
 
 /** Host and path only: query strings may carry API keys and are never logged or returned. */
@@ -23,6 +32,7 @@ export function describeUrl(url: URL): string {
 
 export async function fetchJson<T>(options: FetchJsonOptions<T>): Promise<T | null> {
   const { provider, url, schema } = options;
+  await options.guard?.(provider);
   const timeout = AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
 
