@@ -29,6 +29,8 @@ export interface LlmResponse {
   functionCalls: { name: string; args: Record<string, unknown> }[];
   text: string;
   usage: { promptTokens: number; outputTokens: number; totalTokens: number } | null;
+  /** Why generation stopped, e.g. "STOP" or "MAX_TOKENS" (answer cut off). */
+  finishReason: string | null;
 }
 
 export interface LlmClient {
@@ -135,6 +137,7 @@ export class GeminiClient implements LlmClient {
     return {
       model,
       content,
+      finishReason: response.candidates?.[0]?.finishReason ?? null,
       functionCalls: (response.functionCalls ?? []).map((call) => ({ name: call.name ?? "", args: call.args ?? {} })),
       text: (content.parts ?? []).filter((p) => p.text && !p.thought).map((p) => p.text).join(""),
       usage: usage

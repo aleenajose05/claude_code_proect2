@@ -74,6 +74,15 @@ describe("runChat", () => {
     if (result.kind === "analysis") expect(result.notices.join(" ")).toContain("rule-based summary");
   });
 
+  it("tells the user why the AI explanation was not used", async () => {
+    installMarketFakes();
+    const cutOff = fakeLlm((request, i) =>
+      request.tools ? (i === 0 ? { functionCalls: [call("resolve_ticker", { query: "AAPL" })] } : { text: "DONE" }) : { text: '{"stocks":[{"tick', finishReason: "MAX_TOKENS" },
+    );
+    const result = await run("Analyse AAPL", cutOff).promise;
+    expect(result.kind === "analysis" && result.notices.join(" ")).toContain("cut off");
+  });
+
   it("accepts a valid answer on the retry", async () => {
     installMarketFakes();
     let explanations = 0;

@@ -78,6 +78,7 @@ export function fakeLlm(script: Script) {
         functionCalls: [],
         text: "",
         usage: { promptTokens: 10, outputTokens: 5, totalTokens: 15 },
+        finishReason: "STOP",
         ...r,
       };
     },
