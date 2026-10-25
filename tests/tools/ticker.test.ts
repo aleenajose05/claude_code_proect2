@@ -88,3 +88,16 @@ describe("resolveTicker", () => {
     await expect(resolveTicker(ctx, { query: "AAPL", extra: 1 })).rejects.toThrow();
   });
 });
+
+describe("findStockMentions (used only when Gemini is unavailable)", () => {
+  it("finds names and tickers in order, without common words", async () => {
+    const { findStockMentions } = await import("@/lib/tools/ticker");
+    expect(findStockMentions("Is Tesla looking bullish or bearish?")).toEqual(["TSLA"]);
+    expect(findStockMentions("Compare NVIDIA with Apple")).toEqual(["NVDA", "AAPL"]);
+    expect(findStockMentions("What is the calculated target range for AAPL?")).toEqual(["AAPL"]);
+    expect(findStockMentions("What about $msft and Google?")).toEqual(["MSFT", "GOOGL"]);
+    expect(findStockMentions("What about $MSFT and Google?")).toEqual(["MSFT", "GOOGL"]);
+    expect(findStockMentions("is buying an 18 pro now is worth")).toEqual([]);
+    expect(findStockMentions("Should I ask the CEO about the US ETF IPO?")).toEqual([]);
+  });
+});

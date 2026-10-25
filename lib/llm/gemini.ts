@@ -2,6 +2,7 @@ import "server-only";
 import { ApiError, GoogleGenAI, ThinkingLevel, type Content, type FunctionDeclaration, type GenerateContentConfig } from "@google/genai";
 
 import { AppError } from "@/lib/errors";
+import { sanitizeError } from "@/lib/store/redact";
 
 /**
  * Thin wrapper over the official @google/genai SDK. The orchestrator depends on the
@@ -17,6 +18,8 @@ export interface LlmRequest {
   temperature: number;
   maxOutputTokens: number;
   signal: AbortSignal;
+  /** Per-call limit for each model attempt (default 20 s). */
+  timeoutMs?: number;
 }
 
 export interface LlmResponse {
@@ -39,8 +42,16 @@ export interface LlmClient {
  */
 export const GEMINI_HTTP_OPTIONS = { retryOptions: { attempts: 1 } };
 
-/** Per-call cap, so one slow call leaves time for the fallback model and the explanation. */
+/** Default per-call cap, so one slow call leaves time for the fallback model and the explanation. */
 const CALL_TIMEOUT_MS = 20_000;
+
+/** Server log line for the Vercel dashboard: model, error type, HTTP status and timing; never keys or prompts. */
+function logFailure(model: string, error: unknown, startedAt: number) {
+  const name = error instanceof Error ? error.name : "Error";
+  const status = error instanceof ApiError ? error.status : "n/a";
+  const detail = error instanceof ApiError ? sanitizeError(error.message).slice(0, 200) : "";
+  console.warn(`[gemini] model=${model} failed: ${name} status=${status} after ${Date.now() - startedAt} ms ${detail}`.trim());
+}
 
 /** Statuses after which the fallback model is worth trying. */
 const FALLBACK_STATUSES = new Set([404, 429, 500, 503]);
@@ -82,18 +93,22 @@ export class GeminiClient implements LlmClient {
   }
 
   async generate(request: LlmRequest): Promise<LlmResponse> {
+    const startedAt = Date.now();
     try {
       return await this.call(this.models.primary, request);
     } catch (error) {
+      logFailure(this.models.primary, error, startedAt);
       const status = error instanceof ApiError ? error.status : null;
       const callTimedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
       const worthFallback = callTimedOut || (status !== null && FALLBACK_STATUSES.has(status));
       if (!this.models.fallback || !worthFallback || request.signal.aborted) {
         throw toAppError(error);
       }
+      const fallbackStartedAt = Date.now();
       try {
         return await this.call(this.models.fallback, request);
       } catch (fallbackError) {
+        logFailure(this.models.fallback, fallbackError, fallbackStartedAt);
         throw toAppError(fallbackError);
       }
     }
@@ -106,7 +121,7 @@ export class GeminiClient implements LlmClient {
       config: {
         systemInstruction: request.system,
         maxOutputTokens: request.maxOutputTokens,
-        abortSignal: AbortSignal.any([request.signal, AbortSignal.timeout(CALL_TIMEOUT_MS)]),
+        abortSignal: AbortSignal.any([request.signal, AbortSignal.timeout(request.timeoutMs ?? CALL_TIMEOUT_MS)]),
         ...modelTuning(model, request.temperature),
         ...(request.tools ? { tools: [{ functionDeclarations: request.tools }] } : {}),
         ...(request.jsonSchema

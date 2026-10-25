@@ -155,12 +155,31 @@ describe("runChat", () => {
     expect(trace.steps.some((s) => s.name === "Tool-calling loop reached its limit")).toBe(true);
   });
 
-  it("reports AI outages and time-budget exhaustion as typed errors", async () => {
+  it("keeps working by keyword matching when Gemini is down", async () => {
     installMarketFakes();
-    const failing = fakeLlm(() => {
-      throw new Error("boom");
-    });
-    expect(await run("Analyse AAPL", failing).promise).toMatchObject({ kind: "error", code: "PROVIDER_ERROR" });
+    const failing = () =>
+      fakeLlm(() => {
+        throw new Error("boom");
+      });
+    const byTicker = await run("What is the target range for AAPL?", failing()).promise;
+    expect(byTicker.kind).toBe("analysis");
+    if (byTicker.kind === "analysis") {
+      expect(byTicker.stocks[0].company.ticker).toBe("AAPL");
+      expect(byTicker.explanationSource).toBe("FALLBACK");
+      expect(byTicker.notices.join(" ")).toContain("identified by name or ticker matching");
+    }
+    const byName = await run("Compare Microsoft with Apple", failing()).promise;
+    expect(byName.kind === "analysis" && byName.stocks.map((s) => s.company.ticker)).toEqual(["MSFT", "AAPL"]);
+    const followUp = await run("What are its risks?", failing(), { context: { activeTicker: "NVDA", secondaryTicker: null } }).promise;
+    expect(followUp.kind === "analysis" && followUp.stocks[0].company.ticker).toBe("NVDA");
+    const notStock = await run("is buying an 18 pro now worth it", failing()).promise;
+    expect(notStock).toMatchObject({ kind: "clarification" });
+    const tooMany = await run("Compare Apple, Microsoft and NVIDIA", failing()).promise;
+    expect(tooMany.kind === "clarification" && tooMany.message).toContain("at most two");
+  });
+
+  it("reports time-budget exhaustion as a typed error", async () => {
+    installMarketFakes();
     expect(await run("Analyse AAPL", standardScript(["AAPL"], () => "")).promise.then((r) => r.kind)).not.toBe("error");
     expect(await run("Analyse AAPL", standardScript(["AAPL"], () => ""), { deadlineMs: 1_000 }).promise).toMatchObject({ kind: "error", code: "TIMEOUT" });
   });

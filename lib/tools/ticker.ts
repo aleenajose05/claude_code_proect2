@@ -200,3 +200,35 @@ export async function resolveTicker(ctx: ToolContext, rawInput: unknown): Promis
     candidates: toCandidates(suggestions),
   };
 }
+
+/** Upper-case words that are not tickers, for keyword matching in free text. */
+const NOT_TICKERS = new Set([
+  "I", "A", "AI", "US", "USA", "UK", "EU", "CEO", "CFO", "ETF", "ETFS", "IPO", "EPS", "PE", "OK", "SEC", "FDA",
+  "GDP", "CPI", "EV", "Q1", "Q2", "Q3", "Q4", "FY", "YOY", "API", "PRO", "MAX", "TV", "PC", "UP", "DOWN", "NOW",
+]);
+
+/**
+ * Finds company names and tickers in a question without the LLM, in order of appearance.
+ * Used only when Gemini is unavailable; every result is still verified by resolveTicker.
+ */
+export function findStockMentions(question: string): string[] {
+  // Positions are measured in one normalised string so names and tickers sort together.
+  const normalized = ` ${normalizeName(question)} `;
+  const position = (word: string) => normalized.indexOf(` ${word.toLowerCase()} `);
+  const found: { index: number; ticker: string }[] = [];
+
+  const google = googleShareClass(question);
+  if (google) found.push({ index: Math.min(...["google", "alphabet"].map(position).filter((i) => i >= 0)), ticker: google.ticker });
+  for (const [alias, ticker] of Object.entries(ALIASES)) {
+    const index = position(alias);
+    if (index >= 0 && ticker !== "GOOGL") found.push({ index, ticker });
+  }
+  // "$msft" (any case) or a bare upper-case word such as "AAPL".
+  for (const match of question.matchAll(/\$([A-Za-z]{1,5}(?:\.[A-Za-z])?)\b|\b([A-Z]{1,5}(?:\.[A-Z])?)\b/g)) {
+    const [, dollarSymbol, bareSymbol] = match;
+    if (bareSymbol && (bareSymbol.length < 2 || NOT_TICKERS.has(bareSymbol))) continue;
+    const symbol = (dollarSymbol ?? bareSymbol).toUpperCase();
+    found.push({ index: position(symbol.replace(".", " ")), ticker: symbol });
+  }
+  return [...new Set(found.sort((a, b) => a.index - b.index).map((f) => f.ticker))];
+}
