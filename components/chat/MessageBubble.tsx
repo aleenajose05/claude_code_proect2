@@ -1,4 +1,6 @@
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, RotateCcw, XCircle } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 
 import type { TraceStep } from "@/lib/chat/trace";
 import type { ChatResult } from "@/lib/chat/types";
@@ -6,7 +8,16 @@ import { AnswerCard } from "./AnswerCard";
 
 export type Message =
   | { id: string; role: "user"; text: string }
-  | { id: string; role: "assistant"; steps: TraceStep[]; result: ChatResult | null; error: string | null; requestId: string | null };
+  | {
+      id: string;
+      role: "assistant";
+      /** The question this answers, so a failed request can be retried. */
+      question: string;
+      steps: TraceStep[];
+      result: ChatResult | null;
+      error: string | null;
+      requestId: string | null;
+    };
 
 /** Shows the server's real processing steps while waiting; no invented progress. */
 function Progress({ steps }: { steps: TraceStep[] }) {
@@ -28,7 +39,7 @@ function Progress({ steps }: { steps: TraceStep[] }) {
   );
 }
 
-export function MessageBubble({ message }: { message: Message }) {
+export function MessageBubble({ message, onRetry }: { message: Message; onRetry?: (question: string) => void }) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
@@ -41,7 +52,14 @@ export function MessageBubble({ message }: { message: Message }) {
       {message.result ? (
         <AnswerCard result={message.result} />
       ) : message.error ? (
-        <p role="alert" className="border-destructive/40 bg-destructive/10 rounded-lg border p-3 text-sm">{message.error}</p>
+        <div role="alert" className="border-destructive/40 bg-destructive/10 space-y-2 rounded-lg border p-3 text-sm">
+          <p>{message.error}</p>
+          {onRetry && (
+            <Button variant="outline" size="sm" onClick={() => onRetry(message.question)}>
+              <RotateCcw aria-hidden /> Try again
+            </Button>
+          )}
+        </div>
       ) : (
         <Progress steps={message.steps} />
       )}

@@ -67,11 +67,13 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
     setMessages((all) => [
       ...all,
       { id: newId(), role: "user", text },
-      { id: assistantId, role: "assistant", steps: [], result: null, error: null, requestId: null },
+      { id: assistantId, role: "assistant", question: text, steps: [], result: null, error: null, requestId: null },
     ]);
     setInput("");
     setBusy(true);
 
+    let connected = false;
+    let lastStep: string | null = null;
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -88,6 +90,7 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
         return;
       }
 
+      connected = true;
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -101,6 +104,7 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
           if (!line.trim()) continue;
           const event = JSON.parse(line) as ChatStreamEvent;
           if (event.type === "step") {
+            lastStep = event.step.name;
             setMessages((all) =>
               all.map((m) => (m.id === assistantId && m.role === "assistant" ? { ...m, steps: [...m.steps, event.step] } : m)),
             );
@@ -113,9 +117,13 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
         }
         if (done) break;
       }
-      if (!gotResult) updateAssistant(assistantId, { error: "The connection closed before the analysis finished. Please try again." });
+      if (!gotResult) throw new Error("stream ended without a result");
     } catch {
-      updateAssistant(assistantId, { error: "Could not reach the server. Check your connection and try again." });
+      updateAssistant(assistantId, {
+        error: connected
+          ? `The connection was interrupted while the answer was being prepared${lastStep ? ` (last step: ${lastStep})` : ""}. This can happen while a new version is being deployed or if the server ran out of time. Please try again.`
+          : "Could not reach the server. Check your internet connection and try again.",
+      });
     } finally {
       setBusy(false);
     }
@@ -185,7 +193,7 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
           </section>
         )}
         {messages.map((m) => (
-          <MessageBubble key={m.id} message={m} />
+          <MessageBubble key={m.id} message={m} onRetry={busy ? undefined : (question) => void ask(question)} />
         ))}
         <div ref={endRef} />
       </main>
