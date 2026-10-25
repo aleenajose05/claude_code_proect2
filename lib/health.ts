@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import type { Redis } from "@upstash/redis";
 
 import { getEnv } from "@/lib/env";
+import { GEMINI_HTTP_OPTIONS } from "@/lib/llm/gemini";
 import { sanitizeError } from "@/lib/store/redact";
 
 /**
@@ -74,7 +75,7 @@ export async function runHealthChecks(redis: Redis, options: { force?: boolean }
 
   const results = await Promise.all([
     timed("Gemini", async () => {
-      const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+      const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY, httpOptions: GEMINI_HTTP_OPTIONS });
       // Model metadata lookup: verifies the key and model ID without spending generation tokens.
       const model = await ai.models.get({ model: env.GEMINI_MODEL, config: { abortSignal: AbortSignal.timeout(TIMEOUT_MS) } });
       return model.name ? { ok: true } : { ok: false, problem: "model metadata missing" };

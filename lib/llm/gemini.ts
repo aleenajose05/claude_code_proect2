@@ -32,6 +32,16 @@ export interface LlmClient {
   generate(request: LlmRequest): Promise<LlmResponse>;
 }
 
+/**
+ * The SDK retries 408/429/5xx up to 5 times with exponential backoff by default. That hides
+ * the real error and can consume the whole request budget, so retries are disabled here:
+ * the app does its own fallback to GEMINI_FALLBACK_MODEL instead.
+ */
+export const GEMINI_HTTP_OPTIONS = { retryOptions: { attempts: 1 } };
+
+/** Per-call cap, so one slow call leaves time for the fallback model and the explanation. */
+const CALL_TIMEOUT_MS = 20_000;
+
 /** Statuses after which the fallback model is worth trying. */
 const FALLBACK_STATUSES = new Set([404, 429, 500, 503]);
 
@@ -68,7 +78,7 @@ export class GeminiClient implements LlmClient {
     apiKey: string,
     private readonly models: { primary: string; fallback?: string },
   ) {
-    this.ai = new GoogleGenAI({ apiKey });
+    this.ai = new GoogleGenAI({ apiKey, httpOptions: GEMINI_HTTP_OPTIONS });
   }
 
   async generate(request: LlmRequest): Promise<LlmResponse> {
@@ -76,7 +86,9 @@ export class GeminiClient implements LlmClient {
       return await this.call(this.models.primary, request);
     } catch (error) {
       const status = error instanceof ApiError ? error.status : null;
-      if (!this.models.fallback || status === null || !FALLBACK_STATUSES.has(status) || request.signal.aborted) {
+      const callTimedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+      const worthFallback = callTimedOut || (status !== null && FALLBACK_STATUSES.has(status));
+      if (!this.models.fallback || !worthFallback || request.signal.aborted) {
         throw toAppError(error);
       }
       try {
@@ -94,7 +106,7 @@ export class GeminiClient implements LlmClient {
       config: {
         systemInstruction: request.system,
         maxOutputTokens: request.maxOutputTokens,
-        abortSignal: request.signal,
+        abortSignal: AbortSignal.any([request.signal, AbortSignal.timeout(CALL_TIMEOUT_MS)]),
         ...modelTuning(model, request.temperature),
         ...(request.tools ? { tools: [{ functionDeclarations: request.tools }] } : {}),
         ...(request.jsonSchema
