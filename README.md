@@ -100,8 +100,8 @@ All of these are **server-side only**. Never add the `NEXT_PUBLIC_` prefix. `lib
 | Variable | Required | What it is |
 |---|---|---|
 | `GEMINI_API_KEY` | yes | From https://aistudio.google.com/apikey |
-| `GEMINI_MODEL` | yes | e.g. `gemini-2.5-flash`; check the models available in AI Studio |
-| `GEMINI_FALLBACK_MODEL` | no | e.g. `gemini-2.5-flash-lite`; used if the primary model fails with 404, 429 or 5xx |
+| `GEMINI_MODEL` | yes | e.g. `gemini-3.8-flash`. New API keys can't use Gemini 2.5 models (they return HTTP 404) |
+| `GEMINI_FALLBACK_MODEL` | no | e.g. `gemini-3.6-flash`; used if the primary model fails with 404, 429 or 5xx |
 | `FINNHUB_API_KEY` | yes | https://finnhub.io/register |
 | `TIINGO_API_KEY` | yes | https://www.tiingo.com/account/api/token |
 | `ALPHA_VANTAGE_API_KEY` | no | Fallback only: https://www.alphavantage.co/support/#api-key |
@@ -255,7 +255,7 @@ This is why the app is designed to run **behind a password that only you know**.
 | Login always says "Incorrect password" | Check for spaces when you pasted `DEMO_PASSWORD`/`DEBUG_PASSWORD`, and redeploy after changing it. |
 | "Too many login attempts" | 5 failures in 15 minutes; wait. |
 | "The AI service is unavailable: Gemini quota or rate limit reached" | The free Gemini quota is used up; it resets daily (Pacific time). Lower `GLOBAL_DAILY_CAP`. |
-| "Gemini returned HTTP 404" | `GEMINI_MODEL` isn't available to your key. Pick an ID listed in AI Studio. |
+| "Gemini returned HTTP 404" | `GEMINI_MODEL` isn't available to your key. New keys can't use `gemini-2.5-*`; use `gemini-3.8-flash` (fallback `gemini-3.6-flash`) or another ID listed in AI Studio. |
 | "Finnhub rejected the request (invalid key or plan does not include this data)" | Wrong key, or the endpoint isn't on the free plan. |
 | "… response did not match the expected format" | A provider changed its format. Note the provider and step from `/debug` and update the parser. |
 | Debug dashboard shows Redis `UNAVAILABLE` | Check `UPSTASH_REDIS_REST_URL`/`TOKEN`. The chat keeps working without a cache. |

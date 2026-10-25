@@ -22,7 +22,7 @@ Use either method once your keys are available:
 | 7 | Tiingo EOD | `adjOpen/adjHigh/adjLow/adjClose/adjVolume` fields; HTTP 404 for unknown tickers; `Authorization: Token …` header | `lib/providers/tiingo.ts` |
 | 8 | Tiingo metadata | `GET /tiingo/daily/AAPL` returns an object with `ticker` (used for the health check) | `lib/health.ts` |
 | 9 | Alpha Vantage | `GLOBAL_QUOTE` and `TIME_SERIES_DAILY` formats; rate limits arrive as HTTP 200 with `Note` or `Information` | `lib/providers/alphavantage.ts` |
-| 10 | Gemini model IDs | `gemini-2.5-flash` / `gemini-2.5-flash-lite` are available to your key; check Google AI Studio | `.env.example` |
+| 10 | Gemini model IDs | `gemini-3.8-flash` / `gemini-3.6-flash` are available to your key (2.5 models return 404 for new keys); check Google AI Studio | `.env.example` |
 | 11 | Gemini structured output | `responseJsonSchema` accepts the schema in `lib/llm/schema.ts`, including `anyOf` with `null` | `lib/llm/schema.ts` |
 | 12 | Gemini thinking | 2.5 models accept `thinkingBudget: 512`; 3.x models accept `thinkingLevel: LOW` | `lib/llm/gemini.ts` |
 | 13 | Gemini free quota | Reported as about 20 requests per day per model. Each analysis uses 2–4 calls, so set `GLOBAL_DAILY_CAP` to match your real quota | AI Studio → Rate limits |
