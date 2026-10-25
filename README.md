@@ -78,7 +78,7 @@ tests/            Vitest tests
 docs/             Phase 1 proposal (architecture, providers, formulas)
 ```
 
-More folders (`lib/tools`, `lib/providers`, `lib/analysis`, …) are added in the phases that implement them. Empty placeholder files aren't committed ahead of time.
+More folders (`lib/tools`, `lib/providers`, `lib/llm`, …) are added in the phases that implement them. Empty placeholder files aren't committed ahead of time.
 
 ## Data licensing
 
