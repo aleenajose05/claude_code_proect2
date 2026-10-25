@@ -1,7 +1,26 @@
 # StockLens AI — Phase 1 Proposal (Research, Architecture, Formulas)
 
-Status: **AWAITING OWNER APPROVAL. No application code has been written.**
+Status: **APPROVED by the owner on 2026-10-25, with one change: Google Gemini replaces Groq as the AI provider (see §A).**
 Research date: 2026-10-25
+
+## A. Amendment — Gemini instead of Groq (owner decision)
+
+The architecture, providers, licensing default (owner-only, §2a option 1) and formulas (§8) are unchanged. Only the LLM layer changes.
+
+| Item | Groq plan (superseded) | Gemini plan |
+|---|---|---|
+| SDK | groq-sdk / AI SDK | `@google/genai` (official Google SDK) |
+| Primary model | `openai/gpt-oss-120b` | `GEMINI_MODEL`, suggested `gemini-2.5-flash` (documented stable; supports function calling, structured outputs, thinking) |
+| Fallback model | `openai/gpt-oss-20b` | `GEMINI_FALLBACK_MODEL`, suggested `gemini-2.5-flash-lite` (pricing page lists a free tier) |
+| Env vars | `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_FALLBACK_MODEL` | `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL` |
+| Phase B output | strict `json_schema` | `responseMimeType: application/json` + response JSON schema, then the same Zod validation |
+
+**What changes for you ⚠**
+1. **Free-tier quota is much lower than Groq's and unverified.** Limits are per project and per model. Developer-forum reports say Google cut the free tier in December 2025, with Flash and Flash-Lite at about **20 requests per day** each (earlier 250 and 1,000). At 2–3 Gemini calls per analysis that is **roughly 7–10 analyses per day per model**. Check the real numbers in Google AI Studio. The global daily cap (`GLOBAL_DAILY_CAP`) must be set at or below what your quota allows.
+2. **Model naming is unsettled.** Google's pages also list newer IDs (Gemini 3.x previews and others) that I could not verify. The model is therefore configured only through env vars, and Phase 5 confirms the IDs with a real key.
+3. **Privacy.** Under the Gemini API Additional Terms, prompts and responses on the **unpaid** tier may be used to improve Google products and may be read by human reviewers (outside the EEA, Switzerland and the UK). The app sends Gemini only the question and verified market data, never credentials. The privacy notice tells users not to type personal information.
+
+Sources: [Gemini 2.5 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash) · [Release notes](https://ai.google.dev/gemini-api/docs/changelog) · [Rate limits](https://ai.google.dev/gemini-api/docs/rate-limits) · [Pricing](https://ai.google.dev/gemini-api/docs/pricing) · [Additional terms](https://ai.google.dev/gemini-api/terms) · [Forum: free-tier reduction](https://discuss.ai.google.dev/t/do-they-really-think-we-wouldnt-notice-a-92-free-tier-quota/111262)
 
 ## 0. How this research was done (read first)
 
