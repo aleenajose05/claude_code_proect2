@@ -92,9 +92,34 @@ export function parseEnv(source: Record<string, string | undefined>): ServerEnv 
   return result.data;
 }
 
+/**
+ * Every variable is read by its literal name. Some runtimes (proxy/middleware bundles on
+ * hosting platforms) only expose variables that the code references as `process.env.NAME`,
+ * so passing `process.env` around as a whole object can make set variables look missing.
+ */
+function readProcessEnv(): Record<string, string | undefined> {
+  return {
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    GEMINI_MODEL: process.env.GEMINI_MODEL,
+    GEMINI_FALLBACK_MODEL: process.env.GEMINI_FALLBACK_MODEL,
+    FINNHUB_API_KEY: process.env.FINNHUB_API_KEY,
+    TIINGO_API_KEY: process.env.TIINGO_API_KEY,
+    ALPHA_VANTAGE_API_KEY: process.env.ALPHA_VANTAGE_API_KEY,
+    UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
+    UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
+    SESSION_SECRET: process.env.SESSION_SECRET,
+    DEBUG_PASSWORD: process.env.DEBUG_PASSWORD,
+    DEMO_MODE: process.env.DEMO_MODE,
+    DEMO_PASSWORD: process.env.DEMO_PASSWORD,
+    RATE_LIMIT_PER_MINUTE: process.env.RATE_LIMIT_PER_MINUTE,
+    RATE_LIMIT_PER_DAY: process.env.RATE_LIMIT_PER_DAY,
+    GLOBAL_DAILY_CAP: process.env.GLOBAL_DAILY_CAP,
+  };
+}
+
 let cached: ServerEnv | undefined;
 
 export function getEnv(): ServerEnv {
-  cached ??= parseEnv(process.env);
+  cached ??= parseEnv(readProcessEnv());
   return cached;
 }
