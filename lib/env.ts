@@ -32,15 +32,15 @@ export const envSchema = z
     UPSTASH_REDIS_REST_URL: z.url({ protocol: /^https$/, error: "UPSTASH_REDIS_REST_URL must be an https URL" }),
     UPSTASH_REDIS_REST_TOKEN: nonEmpty("UPSTASH_REDIS_REST_TOKEN"),
 
-    // Authentication
+    // Authentication (all optional). Without DEMO_PASSWORD the chat is public; without
+    // DEBUG_PASSWORD the debug dashboard and its APIs are switched off, never left open.
     SESSION_SECRET: z
-      .string({ error: "SESSION_SECRET is required" })
-      .min(MIN_SECRET_LENGTH, `SESSION_SECRET must be at least ${MIN_SECRET_LENGTH} characters`),
-    DEBUG_PASSWORD: z
-      .string({ error: "DEBUG_PASSWORD is required" })
-      .min(12, "DEBUG_PASSWORD must be at least 12 characters"),
-    DEMO_MODE: z.enum(["password", "public"]).default("password"),
-    DEMO_PASSWORD: z.string().optional(),
+      .string()
+      .min(MIN_SECRET_LENGTH, `SESSION_SECRET must be at least ${MIN_SECRET_LENGTH} characters`)
+      .optional(),
+    DEBUG_PASSWORD: z.string().min(12, "DEBUG_PASSWORD must be at least 12 characters").optional(),
+    DEMO_MODE: z.enum(["password", "public"]).optional(),
+    DEMO_PASSWORD: z.string().min(12, "DEMO_PASSWORD must be at least 12 characters").optional(),
 
     // Usage limits
     RATE_LIMIT_PER_MINUTE: positiveInt(10),
@@ -48,23 +48,30 @@ export const envSchema = z
     GLOBAL_DAILY_CAP: positiveInt(40),
   })
   .superRefine((env, ctx) => {
-    if (env.DEMO_MODE !== "password") return;
-    if (!env.DEMO_PASSWORD || env.DEMO_PASSWORD.length < 12) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["DEMO_PASSWORD"],
-        message: "DEMO_PASSWORD (at least 12 characters) is required when DEMO_MODE=password",
-      });
-    } else if (env.DEMO_PASSWORD === env.DEBUG_PASSWORD) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["DEMO_PASSWORD"],
-        message: "DEMO_PASSWORD must be different from DEBUG_PASSWORD",
-      });
+    const demoMode = env.DEMO_MODE ?? (env.DEMO_PASSWORD ? "password" : "public");
+    if (demoMode === "password" && !env.DEMO_PASSWORD) {
+      ctx.addIssue({ code: "custom", path: ["DEMO_PASSWORD"], message: "DEMO_PASSWORD is required when DEMO_MODE=password" });
     }
-  });
+    if ((demoMode === "password" || env.DEBUG_PASSWORD) && !env.SESSION_SECRET) {
+      ctx.addIssue({ code: "custom", path: ["SESSION_SECRET"], message: "SESSION_SECRET is required when a demo or debug password is set" });
+    }
+    if (env.DEMO_PASSWORD && env.DEMO_PASSWORD === env.DEBUG_PASSWORD) {
+      ctx.addIssue({ code: "custom", path: ["DEMO_PASSWORD"], message: "DEMO_PASSWORD must be different from DEBUG_PASSWORD" });
+    }
+  })
+  .transform((env) => ({
+    ...env,
+    DEMO_MODE: env.DEMO_MODE ?? (env.DEMO_PASSWORD ? ("password" as const) : ("public" as const)),
+    /** The debug dashboard exists only when it can be protected. */
+    debugEnabled: Boolean(env.DEBUG_PASSWORD && env.SESSION_SECRET),
+  }));
 
-export type ServerEnv = z.infer<typeof envSchema>;
+/** Key for hashing client IPs in rate limiting; a fixed label when no SESSION_SECRET is configured. */
+export function clientIdSalt(env: { SESSION_SECRET?: string }): string {
+  return env.SESSION_SECRET ?? "stocklens-ai-client-id";
+}
+
+export type ServerEnv = z.output<typeof envSchema>;
 
 export class ConfigError extends Error {
   readonly code = "CONFIG_ERROR";

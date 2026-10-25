@@ -8,6 +8,8 @@ import { getEnv } from "@/lib/env";
 export function hasSession(request: NextRequest, scope: AuthScope): boolean {
   const env = getEnv();
   if (scope === "demo" && env.DEMO_MODE === "public") return true;
+  if (scope === "debug" && !env.debugEnabled) return false;
+  if (!env.SESSION_SECRET) return false;
   return verifySessionToken(env.SESSION_SECRET, scope, request.cookies.get(SESSION_COOKIES[scope])?.value);
 }
 

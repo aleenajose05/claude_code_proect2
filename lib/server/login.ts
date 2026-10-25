@@ -20,18 +20,21 @@ export async function handleLogin(request: NextRequest, scope: AuthScope): Promi
     throw error;
   }
   if (scope === "demo" && env.DEMO_MODE === "public") return jsonError(400, "NOT_REQUIRED", "This deployment does not use a demo password.");
+  if (scope === "debug" && !env.debugEnabled) return jsonError(404, "DEBUG_DISABLED", "The debug dashboard is disabled because DEBUG_PASSWORD is not set.");
+  const secret = env.SESSION_SECRET;
+  const expected = scope === "demo" ? env.DEMO_PASSWORD : env.DEBUG_PASSWORD;
+  if (!secret || !expected) return jsonError(503, "CONFIG_ERROR", "Login is not configured on this deployment.");
 
-  const limit = await checkLoginLimit(getRedis(), scope, clientId(request.headers, env.SESSION_SECRET));
+  const limit = await checkLoginLimit(getRedis(), scope, clientId(request.headers, secret));
   if (!limit.ok) return jsonError(429, "RATE_LIMITED", limit.message, { "Retry-After": String(limit.retryAfterSeconds) });
 
   const parsed = loginBody.safeParse(await request.json().catch(() => null));
-  const expected = scope === "demo" ? env.DEMO_PASSWORD! : env.DEBUG_PASSWORD;
   if (!parsed.success || !passwordMatches(parsed.data.password, expected)) {
     return jsonError(401, "INVALID_PASSWORD", "Incorrect password.");
   }
 
   const response = NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
-  response.cookies.set(sessionCookie(scope, createSessionToken(env.SESSION_SECRET, scope), process.env.NODE_ENV === "production"));
+  response.cookies.set(sessionCookie(scope, createSessionToken(secret, scope), process.env.NODE_ENV === "production"));
   return response;
 }
 

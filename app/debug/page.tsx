@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 
@@ -15,7 +15,9 @@ async function AuthorizedDashboard() {
   const token = (await cookies()).get(SESSION_COOKIES.debug)?.value;
   // Session expiry depends on the current time, so this must never be prerendered.
   await connection();
-  if (!verifySessionToken(getEnv().SESSION_SECRET, "debug", token)) redirect("/debug/login");
+  const env = getEnv();
+  if (!env.debugEnabled || !env.SESSION_SECRET) notFound();
+  if (!verifySessionToken(env.SESSION_SECRET, "debug", token)) redirect("/debug/login");
   return <DebugDashboard />;
 }
 

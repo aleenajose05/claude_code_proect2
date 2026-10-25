@@ -28,6 +28,7 @@ describe("parseEnv", () => {
   it("accepts a complete configuration and applies defaults", () => {
     const env = parseEnv(valid);
     expect(env.DEMO_MODE).toBe("password");
+    expect(env.debugEnabled).toBe(true);
     expect(env.RATE_LIMIT_PER_MINUTE).toBe(10);
     expect(env.RATE_LIMIT_PER_DAY).toBe(50);
     expect(env.GLOBAL_DAILY_CAP).toBe(40);
@@ -47,14 +48,22 @@ describe("parseEnv", () => {
     expect(problems.join(" ")).not.toContain(secret);
   });
 
-  it("requires DEMO_PASSWORD only in password mode", () => {
-    expect(problemsFor({ ...valid, DEMO_PASSWORD: undefined }).join(" ")).toContain("DEMO_PASSWORD");
-    expect(() => parseEnv({ ...valid, DEMO_MODE: "public", DEMO_PASSWORD: undefined })).not.toThrow();
+  it("runs without any passwords: public chat, debug dashboard switched off", () => {
+    const env = parseEnv({ ...valid, SESSION_SECRET: undefined, DEBUG_PASSWORD: undefined, DEMO_PASSWORD: undefined });
+    expect(env.DEMO_MODE).toBe("public");
+    expect(env.debugEnabled).toBe(false);
   });
 
-  it("rejects reusing DEBUG_PASSWORD as DEMO_PASSWORD", () => {
-    const problems = problemsFor({ ...valid, DEMO_PASSWORD: valid.DEBUG_PASSWORD });
-    expect(problems.join(" ")).toContain("must be different from DEBUG_PASSWORD");
+  it("protects the chat whenever DEMO_PASSWORD is set, and enables debug only with its password", () => {
+    expect(parseEnv(valid)).toMatchObject({ DEMO_MODE: "password", debugEnabled: true });
+    expect(parseEnv({ ...valid, DEBUG_PASSWORD: undefined })).toMatchObject({ DEMO_MODE: "password", debugEnabled: false });
+    expect(parseEnv({ ...valid, DEMO_MODE: "public" }).DEMO_MODE).toBe("public");
+  });
+
+  it("requires SESSION_SECRET when a password is set, and DEMO_PASSWORD in password mode", () => {
+    expect(problemsFor({ ...valid, SESSION_SECRET: undefined }).join(" ")).toContain("SESSION_SECRET is required");
+    expect(problemsFor({ ...valid, DEMO_MODE: "password", DEMO_PASSWORD: undefined }).join(" ")).toContain("DEMO_PASSWORD is required");
+    expect(problemsFor({ ...valid, DEMO_PASSWORD: "short" }).join(" ")).toContain("DEMO_PASSWORD must be at least 12");
   });
 
   it("rejects a non-https Redis URL and non-numeric limits", () => {

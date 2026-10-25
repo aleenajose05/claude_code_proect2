@@ -5,7 +5,7 @@ import { clientId } from "@/lib/auth";
 import { runChat } from "@/lib/chat/orchestrator";
 import { Trace } from "@/lib/chat/trace";
 import { chatRequestSchema, type ChatResult, type ChatStreamEvent } from "@/lib/chat/types";
-import { ConfigError, getEnv } from "@/lib/env";
+import { clientIdSalt, ConfigError, getEnv } from "@/lib/env";
 import { checkChatLimits } from "@/lib/ratelimit";
 import { writeRequestLog, type RequestLog } from "@/lib/store/logger";
 import { redactPreview, sanitizeError } from "@/lib/store/redact";
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
   request.signal.addEventListener("abort", () => abort.abort());
   const services = createChatServices(abort.signal, (op) => trace.mark(`Cache ${op} failed; continuing without cache`, undefined, "error"));
 
-  const limits = await checkChatLimits(services.redis, clientId(request.headers, env.SESSION_SECRET));
+  const limits = await checkChatLimits(services.redis, clientId(request.headers, clientIdSalt(env)));
   trace.mark("Rate limit checked");
   if (!limits.ok) {
     await safeLog(services.redis, baseLog(requestId, parsed.data.question, trace, 429, "rate_limited", limits.message));

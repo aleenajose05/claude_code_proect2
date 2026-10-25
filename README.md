@@ -93,6 +93,8 @@ docs/         Phase 1 proposal, live verification checklist
 
 ## 4. Environment variables
 
+**Public vs private:** with no passwords set, the chat is public and the debug dashboard is off. To go private later, add `SESSION_SECRET` and `DEMO_PASSWORD` (and `DEBUG_PASSWORD` for `/debug`) in Vercel and redeploy; no code change is needed.
+
 All of these are **server-side only**. Never add the `NEXT_PUBLIC_` prefix. `lib/env.ts` validates them and names any missing ones without showing their values.
 
 | Variable | Required | What it is |
@@ -105,10 +107,10 @@ All of these are **server-side only**. Never add the `NEXT_PUBLIC_` prefix. `lib
 | `ALPHA_VANTAGE_API_KEY` | no | Fallback only: https://www.alphavantage.co/support/#api-key |
 | `UPSTASH_REDIS_REST_URL` | yes | Upstash console → your database → REST API → URL (`https://…`) |
 | `UPSTASH_REDIS_REST_TOKEN` | yes | Same page → token |
-| `SESSION_SECRET` | yes | ≥32 random characters. Generate with `openssl rand -base64 48` |
-| `DEBUG_PASSWORD` | yes | ≥12 characters, for `/debug` |
-| `DEMO_MODE` | no | `password` (default) or `public`. Keep `password` unless the data providers give written permission |
-| `DEMO_PASSWORD` | when `DEMO_MODE=password` | ≥12 characters; **must differ** from `DEBUG_PASSWORD` (the app refuses to start otherwise) |
+| `SESSION_SECRET` | only with a password | ≥32 random characters (`openssl rand -base64 48`). Required when `DEMO_PASSWORD` or `DEBUG_PASSWORD` is set |
+| `DEMO_PASSWORD` | no | ≥12 characters. **Set it to make the chat private**; leave it unset for a public chat |
+| `DEBUG_PASSWORD` | no | ≥12 characters, different from `DEMO_PASSWORD`. **Without it, `/debug`, `/api/health` and `/api/logs` are switched off (404)**, never left open |
+| `DEMO_MODE` | no | Normally leave unset. `public` forces a public chat even if `DEMO_PASSWORD` is set |
 | `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_PER_DAY` / `GLOBAL_DAILY_CAP` | no | Defaults 10 / 50 / 40. **Set `GLOBAL_DAILY_CAP` to fit your Gemini free quota** (each analysis uses 2–4 Gemini calls) |
 
 ---

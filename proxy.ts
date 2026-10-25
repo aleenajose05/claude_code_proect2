@@ -19,21 +19,28 @@ export function proxy(request: NextRequest) {
     }
     throw error;
   }
+  const valid = (scope: "demo" | "debug") =>
+    Boolean(env.SESSION_SECRET) && verifySessionToken(env.SESSION_SECRET!, scope, request.cookies.get(SESSION_COOKIES[scope])?.value);
 
-  const isDebugArea = pathname === "/debug" || pathname.startsWith("/api/health") || pathname.startsWith("/api/logs");
+  const isDebugArea =
+    pathname === "/debug" || pathname === "/debug/login" || pathname.startsWith("/api/health") || pathname.startsWith("/api/logs");
   if (isDebugArea) {
-    if (verifySessionToken(env.SESSION_SECRET, "debug", request.cookies.get(SESSION_COOKIES.debug)?.value)) return NextResponse.next();
+    // Without DEBUG_PASSWORD the dashboard is switched off rather than left unprotected.
+    if (!env.debugEnabled) return new NextResponse("Not found", { status: 404 });
+    if (pathname === "/debug/login" || valid("debug")) return NextResponse.next();
     if (pathname.startsWith("/api/")) return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Debug login required." } }, { status: 401 });
     return NextResponse.redirect(new URL("/debug/login", request.url));
   }
 
-  if (env.DEMO_MODE === "public") return NextResponse.next();
-  if (verifySessionToken(env.SESSION_SECRET, "demo", request.cookies.get(SESSION_COOKIES.demo)?.value)) return NextResponse.next();
+  if (env.DEMO_MODE === "public") {
+    return pathname === "/demo/login" ? NextResponse.redirect(new URL("/", request.url)) : NextResponse.next();
+  }
+  if (pathname === "/demo/login" || valid("demo")) return NextResponse.next();
   if (pathname.startsWith("/api/")) return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Please log in." } }, { status: 401 });
   return NextResponse.redirect(new URL("/demo/login", request.url));
 }
 
 export const config = {
-  // Everything except static assets, the two login pages and their login/logout endpoints.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|demo/login|debug/login|api/auth/).*)"],
+  // Everything except static assets and the login/logout endpoints.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth/).*)"],
 };
