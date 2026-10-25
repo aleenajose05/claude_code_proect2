@@ -4,13 +4,12 @@ import { LineChart, LogOut, Send, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { CONTEXT_STORAGE_KEY, EMPTY_CONTEXT, parseStoredContext, serializeContext } from "@/lib/chat/session-context";
 import type { ChatStreamEvent, ConversationContext } from "@/lib/chat/types";
 import { Button } from "@/components/ui/button";
 import { MessageBubble, type Message } from "./MessageBubble";
 
-const CONTEXT_KEY = "stocklens:context:v1";
 const MAX_LENGTH = 500;
-const EMPTY_CONTEXT: ConversationContext = { activeTicker: null, secondaryTicker: null };
 
 const SUGGESTIONS = [
   "What is happening with Apple stock today?",
@@ -21,13 +20,9 @@ const SUGGESTIONS = [
   "What is the calculated target range for AAPL?",
 ];
 
-/** Browser-session context: ticker references only, never prices or credentials. */
 function loadContext(): ConversationContext {
   try {
-    const raw = sessionStorage.getItem(CONTEXT_KEY);
-    const parsed = raw ? (JSON.parse(raw) as Partial<ConversationContext>) : null;
-    const ok = (t: unknown) => (typeof t === "string" && /^[A-Z]{1,5}(\.[A-Z])?$/.test(t) ? t : null);
-    return parsed ? { activeTicker: ok(parsed.activeTicker), secondaryTicker: ok(parsed.secondaryTicker) } : EMPTY_CONTEXT;
+    return parseStoredContext(sessionStorage.getItem(CONTEXT_STORAGE_KEY));
   } catch {
     return EMPTY_CONTEXT;
   }
@@ -35,7 +30,7 @@ function loadContext(): ConversationContext {
 
 function saveContext(context: ConversationContext) {
   try {
-    sessionStorage.setItem(CONTEXT_KEY, JSON.stringify(context));
+    sessionStorage.setItem(CONTEXT_STORAGE_KEY, serializeContext(context));
   } catch {
     // Storage can be unavailable (private mode); follow-ups then just need the company name.
   }

@@ -8,7 +8,7 @@ export const MAX_PREVIEW_LENGTH = 100;
 const REPLACEMENTS: [RegExp, string][] = [
   [/\b[\w.+-]+@[\w-]+(\.[\w-]+)+\b/g, "[email]"],
   [/\bhttps?:\/\/\S+/gi, "[url]"],
-  [/\b(bearer|token|api[_ -]?key|password|passwd|secret|pwd)\b\s*[:=]?\s*\S+/gi, "[credential]"],
+  [/\b(bearer|token|api[_ -]?key|password|passwd|secret|pwd)\b(\s+is)?\s*[:=]?\s*\S+/gi, "[credential]"],
   [/\b(sk|pk|gsk|ghp|xox[abp])[-_][A-Za-z0-9_-]{8,}\b/g, "[credential]"],
   [/\bAIza[0-9A-Za-z_-]{20,}\b/g, "[credential]"],
   [/\b(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Za-z])[A-Za-z0-9_-]{24,}\b/g, "[credential]"],
@@ -16,9 +16,11 @@ const REPLACEMENTS: [RegExp, string][] = [
   [/\b\d{6,}\b/g, "[number]"],
 ];
 
-const SUSPICIOUS = /@|\b(password|token|secret|ssn|social security|iban|credit card|account number)\b/i;
+const SUSPICIOUS = /@|\b(password|passwd|pwd|token|secret|api[_ -]?key|bearer|ssn|social security|iban|credit card|account number)\b/i;
 
 export function redactPreview(question: string): string | null {
+  // Questions that mention credentials or personal identifiers are never previewed.
+  if (SUSPICIOUS.test(question)) return null;
   let text = question.replace(/[\u0000-\u001f\u007f]/g, " ");
   for (const [pattern, replacement] of REPLACEMENTS) text = text.replace(pattern, replacement);
   text = text.replace(/\s+/g, " ").trim();
