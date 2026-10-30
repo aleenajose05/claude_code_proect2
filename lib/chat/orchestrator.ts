@@ -1,6 +1,7 @@
 import "server-only";
 import type { Content, FunctionDeclaration, Part } from "@google/genai";
 
+import { parseHorizon } from "@/lib/analysis/horizon";
 import { buildStockAnalysis, type Outcome, type ResolvedTicker, type StockAnalysis } from "@/lib/analysis/build";
 import { AppError } from "@/lib/errors";
 import { fallbackExplanation } from "@/lib/guard/fallback";
@@ -349,6 +350,7 @@ export async function runChat(request: ChatRequest, deps: OrchestratorDeps): Pro
     return { kind: "error", code: "TIMEOUT", message: "The request took too long to complete. Please try again.", context };
   }
 
+  const horizon = parseHorizon(request.question);
   const stocks: StockAnalysis[] = await Promise.all(
     tickers.map(async (ticker) => {
       const entry = data.get(ticker)!;
@@ -357,6 +359,7 @@ export async function runChat(request: ChatRequest, deps: OrchestratorDeps): Pro
         quote: await entry.quote!,
         history: await entry.history!,
         news: await entry.news!,
+        horizon,
       });
     }),
   );

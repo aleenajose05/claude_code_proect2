@@ -1,3 +1,4 @@
+import type { Horizon } from "./horizon";
 import { calculateConfidence, type ConfidenceResult, type ProviderStatus } from "./confidence";
 import {
   calculateTargetRange,
@@ -39,6 +40,8 @@ export interface StockAnalysis {
   indicators: Indicators | null;
   direction: DirectionResult;
   target: TargetRange;
+  /** Range for the period the user asked about ("after 60 days"), when they named one. */
+  askedTarget: { horizon: Horizon; range: TargetRange } | null;
   confidence: ConfidenceResult;
   evidence: EvidenceItem[];
   /** Plain-language notes about data that could not be retrieved or was degraded. */
@@ -46,7 +49,7 @@ export interface StockAnalysis {
   cache: { quote: CacheStatus | null; history: CacheStatus | null; news: CacheStatus | null };
 }
 
-const usd = (n: number) => `$${n.toFixed(2)}`;
+export const usd = (n: number) => `${n < 0 ? "-" : ""}$${Math.abs(n).toFixed(2)}`;
 const pct = (n: number, digits = 2) => `${n >= 0 ? "+" : ""}${n.toFixed(digits)}%`;
 
 const TARGET_REASON_TEXT: Record<Extract<TargetRange, { available: false }>["reason"], string> = {
@@ -65,6 +68,7 @@ export function buildStockAnalysis(input: {
   quote: Outcome<QuoteResult>;
   history: Outcome<PriceHistoryResult>;
   news: Outcome<NewsSentimentResult>;
+  horizon?: Horizon | null;
 }): StockAnalysis {
   const quote = input.quote.ok ? input.quote.value : null;
   const history = input.history.ok ? input.history.value : null;
@@ -103,6 +107,22 @@ export function buildStockAnalysis(input: {
     low90: indicators?.low90 ?? null,
   });
 
+  const askedTarget = input.horizon
+    ? {
+        horizon: input.horizon,
+        range: calculateTargetRange({
+          price,
+          dailyVolatility: indicators?.dailyVolatility ?? null,
+          returnsCount: indicators?.returnsCount ?? 0,
+          quoteAgeSessions: quote?.quoteAgeSessions ?? null,
+          splitSuspected: indicators?.splitSuspected ?? false,
+          high90: indicators?.high90 ?? null,
+          low90: indicators?.low90 ?? null,
+          horizonSessions: input.horizon.sessions,
+        }),
+      }
+    : null;
+
   const anyFallback = Boolean(quote?.usedFallback || history?.usedFallback);
   const providerStatus: ProviderStatus = !quote || !history || !news ? "PARTIAL" : anyFallback ? "FALLBACK" : "PRIMARY";
   const confidence = calculateConfidence({
@@ -139,6 +159,15 @@ export function buildStockAnalysis(input: {
     "Statistical range, next ~20 trading days (≈68%)",
     target.available ? `${usd(target.low)} – ${usd(target.high)}` : "unavailable",
   );
+  if (askedTarget) {
+    add(
+      "M:TARGET_ASKED",
+      `Statistical range for the period asked about (${askedTarget.horizon.label}, ≈68%); an exact future price cannot be known`,
+      askedTarget.range.available
+        ? `${usd(askedTarget.range.low)} – ${usd(askedTarget.range.high)} over ${askedTarget.horizon.label}`
+        : `unavailable over ${askedTarget.horizon.label}`,
+    );
+  }
   add("M:CONFIDENCE", "Confidence in the assessment", confidence.level);
   add(
     "M:SENTIMENT",
@@ -157,6 +186,7 @@ export function buildStockAnalysis(input: {
     indicators,
     direction,
     target,
+    askedTarget,
     confidence,
     evidence,
     missing,

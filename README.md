@@ -232,7 +232,7 @@ What the tests cover:
 4. **VADER** is a general-purpose sentiment lexicon, so it only approximates financial nuance.
 5. **Ticker resolution** depends on Finnhub's instrument `type`. Some edge cases (SPACs, preferred shares) may be misclassified.
 6. **The Alpha Vantage fallback** has 25 requests a day and unadjusted prices. A split-like jump disables the target range.
-7. **The 90-day target range** is a ±1σ statistical band, not a prediction. Confidence measures data quality and consistency, not the probability of a gain.
+7. **The target range** is a ±1σ statistical band, not a prediction. By default it covers ~20 trading days. When a question names a future period ("after 60 days", "next month", up to 1 year), the same formula is applied to that period, giving a wider range; the app never gives a single future price. Confidence measures data quality and consistency, not the probability of a gain.
 8. **Conversation memory** is the last one or two tickers in the browser tab (`sessionStorage`). Closing the tab clears it.
 
 ---

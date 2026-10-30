@@ -103,6 +103,9 @@ export function validateExplanation(raw: unknown, stocks: readonly StockAnalysis
     textsOf(stockText).forEach((text, j) => checkText(text, `${stock.company.ticker} text ${j + 1}`, direction));
   });
   if (explanation.comparison) checkText(explanation.comparison, "comparison", null);
+  // The direct answer may cover two stocks, so only stock-independent checks apply to it.
+  checkText(explanation.answer, "answer", stocks.length === 1 && stocks[0].direction.direction !== "UNAVAILABLE" ? stocks[0].direction.direction : null);
+  explanation.followUps.forEach((q, i) => checkText(q, `follow-up ${i + 1}`, null));
 
   return problems.length ? { ok: false, problems: [...new Set(problems)] } : { ok: true, explanation };
 }

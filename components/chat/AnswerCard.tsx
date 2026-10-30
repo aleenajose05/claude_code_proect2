@@ -1,20 +1,82 @@
-import { AlertTriangle, Info } from "lucide-react";
+"use client";
+
+import { ChevronDown, Info } from "lucide-react";
+import { useState } from "react";
 
 import type { StockAnalysis } from "@/lib/analysis/build";
 import type { ChatResult } from "@/lib/chat/types";
 import type { StockExplanation } from "@/lib/llm/schema";
-import { FRESHNESS_TEXT, formatEt } from "@/lib/format";
-import { Card, CardContent } from "@/components/ui/card";
+import { FRESHNESS_TEXT, formatEt, formatSigned, formatUsd } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { DirectionBadge } from "@/components/stock/DirectionBadge";
 import { NewsSentiment } from "@/components/stock/NewsSentiment";
 import { PriceChart } from "@/components/stock/PriceChart";
 import { StockSummary } from "@/components/stock/StockSummary";
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/** One compact line of the key numbers, so the answer stays conversational. */
+function KeyFigures({ stock }: { stock: StockAnalysis }) {
+  const { quote, company, confidence, direction } = stock;
+  const range = stock.askedTarget?.range ?? stock.target;
+  const rangeLabel = stock.askedTarget ? `Range, ${stock.askedTarget.horizon.label}` : "Range, ~20 trading days";
+  const tone = !quote ? "" : quote.change > 0 ? "text-up" : quote.change < 0 ? "text-down" : "text-sideways";
   return (
-    <section className="space-y-2 border-t pt-4">
-      <h4 className="text-sm font-semibold">{title}</h4>
-      {children}
-    </section>
+    <dl className="bg-muted/40 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border px-4 py-3 text-sm">
+      <div>
+        <dt className="sr-only">Stock</dt>
+        <dd className="font-semibold">{company.ticker}</dd>
+      </div>
+      <div>
+        <dt className="sr-only">Price</dt>
+        <dd className="tabular-nums">
+          {quote ? (
+            <>
+              <span className="font-semibold">{formatUsd(quote.price)}</span>{" "}
+              <span className={tone}>({formatSigned(quote.changePercent)}%)</span>
+            </>
+          ) : (
+            "Price unavailable"
+          )}
+        </dd>
+      </div>
+      <div>
+        <dt className="sr-only">Direction</dt>
+        <dd>
+          <DirectionBadge direction={direction.direction} className="px-1.5 py-0.5 text-xs" />
+        </dd>
+      </div>
+      <div>
+        <dt className="text-muted-foreground inline text-xs">{rangeLabel}: </dt>
+        <dd className="inline tabular-nums">{range.available ? `${formatUsd(range.low)} – ${formatUsd(range.high)}` : "unavailable"}</dd>
+      </div>
+      <div>
+        <dt className="text-muted-foreground inline text-xs">Confidence: </dt>
+        <dd className="inline font-medium">{confidence.level}</dd>
+      </div>
+    </dl>
+  );
+}
+
+function ShortExplanation({ text, showTicker }: { text: StockExplanation; showTicker: boolean }) {
+  return (
+    <div className="space-y-3 text-base leading-relaxed">
+      {showTicker && <p className="font-semibold">{text.ticker}</p>}
+      <div>
+        <p className="font-medium">Why</p>
+        <ul className="mt-1 list-disc space-y-1 pl-5">
+          {text.reasons.map((r) => (
+            <li key={r.text}>{r.text}</li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        <p className="font-medium">Risks to keep in mind</p>
+        <ul className="mt-1 list-disc space-y-1 pl-5">
+          {text.risks.map((r) => (
+            <li key={r.text}>{r.text}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
 
@@ -41,97 +103,123 @@ function Sources({ stock }: { stock: StockAnalysis }) {
   );
 }
 
-function StockAnswer({ stock, text }: { stock: StockAnalysis; text: StockExplanation | undefined }) {
+function Details({ stock, newsSummary }: { stock: StockAnalysis; newsSummary: string | undefined }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <StockSummary stock={stock} />
       {stock.missing.length > 0 && (
-        <ul className="space-y-1 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+        <ul className="text-muted-foreground list-disc space-y-1 pl-5 text-xs">
           {stock.missing.map((m) => (
-            <li key={m} className="flex gap-2">
-              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-              {m}
-            </li>
+            <li key={m}>{m}</li>
           ))}
         </ul>
       )}
       {stock.history && stock.history.candles.length > 1 && (
         <PriceChart history={stock.history} direction={stock.direction.direction} ticker={stock.company.ticker} />
       )}
-      {text && (
-        <>
-          <Section title="Why this direction?">
-            <p className="text-sm">{text.directionExplanation}</p>
-            <ol className="list-decimal space-y-1 pl-5 text-sm">
-              {text.reasons.map((r) => <li key={r.text}>{r.text}</li>)}
-            </ol>
-          </Section>
-          <Section title="Potential risks">
-            <ol className="list-decimal space-y-1 pl-5 text-sm">
-              {text.risks.map((r) => <li key={r.text}>{r.text}</li>)}
-            </ol>
-          </Section>
-          <Section title="Recent news and sentiment">
-            <p className="text-sm">{text.newsSummary}</p>
-            <NewsSentiment news={stock.news} />
-          </Section>
-        </>
-      )}
-      <Section title="Financial data sources">
+      <section className="space-y-2">
+        <h4 className="text-sm font-semibold">Recent news and sentiment</h4>
+        {newsSummary && <p className="text-sm">{newsSummary}</p>}
+        <NewsSentiment news={stock.news} />
+      </section>
+      <section className="space-y-2">
+        <h4 className="text-sm font-semibold">Financial data sources</h4>
         <Sources stock={stock} />
-      </Section>
+      </section>
     </div>
   );
 }
 
-export function AnswerCard({ result }: { result: ChatResult }) {
+export function AnswerCard({ result, onAsk }: { result: ChatResult; onAsk?: (question: string) => void }) {
+  const [open, setOpen] = useState(false);
+
   if (result.kind !== "analysis") {
-    const isError = result.kind === "error";
     return (
-      <Card className="gap-3 py-4">
-        <CardContent className="space-y-2 px-4 text-sm">
-          <p className="flex gap-2">
-            {isError ? <AlertTriangle className="text-destructive mt-0.5 size-4 shrink-0" aria-hidden /> : <Info className="mt-0.5 size-4 shrink-0" aria-hidden />}
-            {result.message}
-          </p>
-          {result.kind === "clarification" && result.candidates.length > 0 && (
-            <ul className="text-muted-foreground list-disc pl-6 text-xs">
-              {result.candidates.map((c) => (
-                <li key={c.ticker}>
-                  {c.name} ({c.ticker}) · {c.type}
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <div className="space-y-3 text-base leading-relaxed">
+        <p>{result.message}</p>
+        {result.kind === "clarification" && result.candidates.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {result.candidates.map((c) => (
+              <button
+                key={c.ticker}
+                type="button"
+                disabled={!onAsk}
+                onClick={() => onAsk?.(`Analyse ${c.ticker}`)}
+                className="hover:bg-accent rounded-full border px-3 py-1.5 text-left text-sm"
+              >
+                {c.name} ({c.ticker})
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     );
   }
 
+  const two = result.stocks.length === 2;
   return (
-    <Card className="gap-4 py-4 sm:py-6">
-      <CardContent className="space-y-6 px-4 sm:px-6">
-        {result.notices.map((n) => (
-          <p key={n} className="bg-muted flex gap-2 rounded-md p-2 text-xs">
-            <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-            {n}
-          </p>
+    <div className="space-y-4">
+      <p className="text-base leading-relaxed whitespace-pre-line">{result.explanation.answer}</p>
+
+      <div className="space-y-2">
+        {result.stocks.map((stock) => (
+          <KeyFigures key={stock.company.ticker} stock={stock} />
         ))}
-        {result.stocks.map((stock, i) => (
-          <div key={stock.company.ticker} className={i > 0 ? "border-t-2 pt-6" : undefined}>
-            <StockAnswer stock={stock} text={result.explanation.stocks.find((s) => s.ticker === stock.company.ticker)} />
+      </div>
+
+      {result.stocks.map((stock) => {
+        const text = result.explanation.stocks.find((s) => s.ticker === stock.company.ticker);
+        return text ? <ShortExplanation key={stock.company.ticker} text={text} showTicker={two} /> : null;
+      })}
+
+      {result.notices.length > 0 && (
+        <div className="text-muted-foreground space-y-1 text-xs">
+          {result.notices.map((n) => (
+            <p key={n} className="flex gap-1.5">
+              <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              {n}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium"
+        >
+          <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden />
+          {open ? "Hide chart, news & sources" : "Show chart, news & sources"}
+        </button>
+        {open && (
+          <div className="mt-4 space-y-8 rounded-2xl border p-4 sm:p-5">
+            {result.stocks.map((stock) => (
+              <Details
+                key={stock.company.ticker}
+                stock={stock}
+                newsSummary={result.explanation.stocks.find((s) => s.ticker === stock.company.ticker)?.newsSummary}
+              />
+            ))}
+            <p className="text-muted-foreground text-xs">
+              Explanation: {result.explanationSource === "AI" ? "written by Gemini from verified data and checked by the app" : "rule-based summary generated by the app"}.
+            </p>
           </div>
-        ))}
-        {result.explanation.comparison && (
-          <Section title="Comparison">
-            <p className="text-sm">{result.explanation.comparison}</p>
-          </Section>
         )}
-        <p className="text-muted-foreground text-xs">
-          Explanation: {result.explanationSource === "AI" ? "written by Gemini from verified data and checked by the app" : "rule-based summary generated by the app"}.
-        </p>
-        <p className="border-t pt-4 text-xs font-medium">{result.disclaimer}</p>
-      </CardContent>
-    </Card>
+      </div>
+
+      {onAsk && result.explanation.followUps.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {result.explanation.followUps.map((q) => (
+            <button key={q} type="button" onClick={() => onAsk(q)} className="hover:bg-accent rounded-full border px-3 py-1.5 text-left text-sm">
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <p className="text-muted-foreground text-[11px] leading-snug">{result.disclaimer}</p>
+    </div>
   );
 }

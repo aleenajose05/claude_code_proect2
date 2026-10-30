@@ -225,8 +225,13 @@ export type TargetRange =
     }
   | { available: false; reason: TargetUnavailableReason };
 
-/** Zero-drift ±1σ band: [P·e^(−σ_d√20), P·e^(+σ_d√20)]. Not clipped to the 90-day high/low. */
+/**
+ * Zero-drift ±1σ band: [P·e^(−σ_d√h), P·e^(+σ_d√h)], h = 20 sessions unless the user asked
+ * about another period. Not clipped to the 90-day high/low.
+ */
 export function calculateTargetRange(input: {
+  /** Trading sessions ahead; defaults to the approved 20. */
+  horizonSessions?: number;
   price: number | null;
   dailyVolatility: number | null;
   returnsCount: number;
@@ -245,14 +250,15 @@ export function calculateTargetRange(input: {
   }
   if (input.splitSuspected) return { available: false, reason: "SPLIT_SUSPECTED" };
 
-  const horizonVolatility = dailyVolatility * Math.sqrt(TARGET_HORIZON_SESSIONS);
+  const horizonSessions = input.horizonSessions ?? TARGET_HORIZON_SESSIONS;
+  const horizonVolatility = dailyVolatility * Math.sqrt(horizonSessions);
   const low = price * Math.exp(-horizonVolatility);
   const high = price * Math.exp(horizonVolatility);
   return {
     available: true,
     low,
     high,
-    horizonSessions: TARGET_HORIZON_SESSIONS,
+    horizonSessions,
     horizonVolatility,
     aboveHistoricalHigh: input.high90 !== null && high > input.high90,
     belowHistoricalLow: input.low90 !== null && low < input.low90,

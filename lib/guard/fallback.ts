@@ -1,4 +1,4 @@
-import type { EvidenceItem, StockAnalysis } from "@/lib/analysis/build";
+import { usd, type EvidenceItem, type StockAnalysis } from "@/lib/analysis/build";
 import type { Explanation, StockExplanation } from "@/lib/llm/schema";
 
 /**
@@ -83,8 +83,73 @@ function comparisonFor(stocks: readonly StockAnalysis[]): string {
   return `Over the 90-day window, ${a.company.ticker} changed by ${r(a)} and ${b.company.ticker} by ${r(b)}. The rule-based direction is ${a.direction.direction} for ${a.company.ticker} and ${b.direction.direction} for ${b.company.ticker}, with ${a.confidence.level} and ${b.confidence.level} confidence respectively.`;
 }
 
+const LEANING: Record<string, string> = {
+  UP: "leaning bullish",
+  DOWN: "leaning bearish",
+  SIDEWAYS: "no clear trend either way",
+};
+
+function trendSentence(stock: StockAnalysis): string {
+  const { direction } = stock.direction;
+  if (direction === "UNAVAILABLE") return "Its trend could not be determined from the available data.";
+  return `Its rule-based trend is ${direction} (${LEANING[direction]}), with ${stock.confidence.level} confidence.`;
+}
+
+function priceSentence(stock: StockAnalysis, name: string): string {
+  const q = stock.quote;
+  if (!q) return `The latest price for ${name} is unavailable right now.`;
+  if (q.change === 0) return `${name} is at ${usd(q.price)}, unchanged from the previous close.`;
+  const move = q.change > 0 ? "up" : "down";
+  return `${name} is at ${usd(q.price)}, ${move} ${usd(Math.abs(q.change))} (${Math.abs(q.changePercent).toFixed(2)}%) from the previous close.`;
+}
+
+function answerForTwo([a, b]: readonly StockAnalysis[]): string {
+  const r90 = (s: StockAnalysis) => value(s, "M:R90");
+  const parts = [`${priceSentence(a, a.company.ticker)} ${priceSentence(b, b.company.ticker)}`];
+  if (r90(a) && r90(b)) parts.push(`Over the last 90 days, ${a.company.ticker} changed by ${r90(a)} and ${b.company.ticker} by ${r90(b)}.`);
+  const [da, db] = [a.direction.direction, b.direction.direction];
+  if (da === db && da !== "UNAVAILABLE") {
+    const confidence =
+      a.confidence.level === b.confidence.level
+        ? `both with ${a.confidence.level} confidence`
+        : `with ${a.confidence.level} and ${b.confidence.level} confidence respectively`;
+    parts.push(`Both have a rule-based ${da} trend (${LEANING[da]}), ${confidence}.`);
+  } else {
+    parts.push(`The rule-based trend is ${da} for ${a.company.ticker} and ${db} for ${b.company.ticker}.`);
+  }
+  return parts.join(" ");
+}
+
+/** Direct answer first: the figure most likely asked for, then the trend. */
+function answerFor(stocks: readonly StockAnalysis[]): string {
+  if (stocks.length === 2) return answerForTwo(stocks);
+  const [stock] = stocks;
+  const parts = [priceSentence(stock, `${stock.company.companyName} (${stock.company.ticker})`)];
+
+  const asked = stock.askedTarget;
+  if (asked) {
+    parts.push(
+      asked.range.available
+        ? `An exact price ${asked.horizon.label} from now can't be known, but based on its recent volatility it would typically trade between ${usd(asked.range.low)} and ${usd(asked.range.high)} over that period.`
+        : `An exact price ${asked.horizon.label} from now can't be known, and there isn't enough recent data to estimate a range.`,
+    );
+  } else if (stock.target.available) {
+    parts.push(`Over the next ~${stock.target.horizonSessions} trading days its usual range is ${usd(stock.target.low)} to ${usd(stock.target.high)}.`);
+  }
+  parts.push(trendSentence(stock));
+  return parts.join(" ");
+}
+
+function followUpsFor(stocks: readonly StockAnalysis[]): string[] {
+  if (stocks.length === 2) return ["Which one is more volatile?", "What are the biggest risks for each?", "What is the latest news on both?"];
+  const other = stocks[0].company.ticker === "AAPL" ? "Microsoft" : "Apple";
+  return ["What are its biggest risks?", "What is the latest news about it?", `Compare it with ${other}`];
+}
+
 export function fallbackExplanation(stocks: readonly StockAnalysis[]): Explanation {
   return {
+    answer: answerFor(stocks),
+    followUps: followUpsFor(stocks),
     stocks: stocks.map((stock) => ({
       ticker: stock.company.ticker,
       directionExplanation: directionTextFor(stock),

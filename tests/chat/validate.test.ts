@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildStockAnalysis } from "@/lib/analysis/build";
 import { fallbackExplanation } from "@/lib/guard/fallback";
 import { validateExplanation } from "@/lib/guard/validate";
+import { parseHorizon } from "@/lib/analysis/horizon";
 import type { PriceHistoryResult, QuoteResult } from "@/lib/tools/schemas";
 import { goodExplanation } from "./fixtures";
 
@@ -66,6 +67,15 @@ describe("validateExplanation", () => {
     expect(validateExplanation(withText(text), [stock]).ok).toBe(false);
   });
 
+  it("checks the direct answer and follow-ups with the same rules", () => {
+    const withAnswer = (answer: string) => ({ ...parse(goodExplanation(["TEST"])), answer });
+    expect(validateExplanation(withAnswer(`Test Co is at ${stock.evidence[0].value} and the trend is UP.`), [stock]).ok).toBe(true);
+    expect(validateExplanation(withAnswer("Test Co will be worth $500.00 in 60 days."), [stock]).ok).toBe(false);
+    expect(validateExplanation(withAnswer("You should buy this stock now."), [stock]).ok).toBe(false);
+    const badFollowUp = { ...parse(goodExplanation(["TEST"])), followUps: ["Should I buy now before it hits $999?"] };
+    expect(validateExplanation(badFollowUp, [stock]).ok).toBe(false);
+  });
+
   it("rejects contradictions of the server direction", () => {
     expect(stock.direction.direction).toBe("UP");
     expect(validateExplanation(withText("Overall the stock is in a clear downtrend."), [stock]).ok).toBe(false);
@@ -91,6 +101,28 @@ describe("validateExplanation", () => {
     expect(fallback.stocks[0].risks).toHaveLength(2);
     expect(validateExplanation(fallback, [stock])).toMatchObject({ ok: true });
     expect(fallbackExplanation([stock])).toEqual(fallback);
+  });
+
+  it("answers a future-price question with the range for that period, never a single price", () => {
+    const asked = buildStockAnalysis({
+      company,
+      quote: { ok: true, value: quote, cache: "MISS" },
+      history: { ok: true, value: history, cache: "MISS" },
+      news: { ok: false, error: "x" },
+      horizon: parseHorizon("What is the value of Test Co after 60 days?"),
+    });
+    expect(asked.askedTarget?.horizon).toEqual({ calendarDays: 60, sessions: 41, label: "60 days" });
+    const range = asked.askedTarget!.range;
+    if (!range.available) throw new Error("expected a range");
+    // A longer period gives a wider range than the standard 20-session one.
+    if (!asked.target.available) throw new Error("expected a range");
+    expect(range.high - range.low).toBeGreaterThan(asked.target.high - asked.target.low);
+    expect(asked.evidence.find((e) => e.id === "M:TARGET_ASKED")?.value).toContain("over 60 days");
+
+    const fallback = fallbackExplanation([asked]);
+    expect(fallback.answer).toContain("can't be known");
+    expect(fallback.answer).toContain(`$${range.low.toFixed(2)}`);
+    expect(validateExplanation(fallback, [asked])).toMatchObject({ ok: true });
   });
 
   it("keeps the fallback valid when most data is missing", () => {

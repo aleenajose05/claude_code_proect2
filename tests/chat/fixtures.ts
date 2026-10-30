@@ -91,6 +91,8 @@ export const call = (name: string, args: Record<string, unknown>) => ({ name, ar
 /** Builds a schema-valid explanation that cites only real evidence ids. */
 export function goodExplanation(tickers: string[]) {
   return JSON.stringify({
+    answer: "Here is a direct answer using only the supplied evidence: the trend and confidence come from the app.",
+    followUps: ["What are its biggest risks?", "What is the latest news?"],
     stocks: tickers.map((ticker) => ({
       ticker,
       directionExplanation: "The direction comes from the moving averages and the 90-day return supplied by the app.",

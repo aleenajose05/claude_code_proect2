@@ -16,8 +16,12 @@ export const stockExplanationSchema = z
 
 export const explanationSchema = z
   .object({
+    /** Direct, conversational answer to exactly what the user asked, shown first. */
+    answer: z.string().trim().min(10).max(900),
     stocks: z.array(stockExplanationSchema).min(1).max(2),
     comparison: z.string().trim().min(10).max(700).nullable(),
+    /** Up to three short questions the user might ask next. */
+    followUps: z.array(z.string().trim().min(5).max(120)).max(3),
   })
   .strict();
 
@@ -38,6 +42,7 @@ const pointJson = {
 export const explanationJsonSchema = {
   type: "object",
   properties: {
+    answer: { type: "string" },
     stocks: {
       type: "array",
       minItems: 1,
@@ -56,7 +61,8 @@ export const explanationJsonSchema = {
       },
     },
     comparison: { anyOf: [{ type: "string" }, { type: "null" }] },
+    followUps: { type: "array", items: { type: "string" }, maxItems: 3 },
   },
-  required: ["stocks", "comparison"],
+  required: ["answer", "stocks", "comparison", "followUps"],
   additionalProperties: false,
 } as const;

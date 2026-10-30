@@ -1,6 +1,6 @@
 "use client";
 
-import { LineChart, LogOut, Send, Trash2 } from "lucide-react";
+import { ArrowUp, LineChart, LogOut, SquarePen } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -17,7 +17,7 @@ const SUGGESTIONS = [
   "Is Tesla looking bullish or bearish?",
   "Compare NVIDIA with Apple.",
   "What are the latest news and risks affecting Google stock?",
-  "What is the calculated target range for AAPL?",
+  "Where could Microsoft stock be in 60 days?",
 ];
 
 function loadContext(): ConversationContext {
@@ -140,26 +140,64 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
     router.replace("/demo/login");
   }
 
+  const composer = (
+    <form
+      className="bg-background focus-within:ring-ring/40 relative flex items-end gap-2 rounded-3xl border p-2 pl-4 shadow-sm focus-within:ring-[3px]"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void ask(input);
+      }}
+    >
+      <label htmlFor="question" className="sr-only">
+        Ask about a US stock
+      </label>
+      <textarea
+        id="question"
+        value={input}
+        onChange={(e) => {
+          setInput(e.target.value.slice(0, MAX_LENGTH));
+          // Grow with the text, up to the CSS max height.
+          e.target.style.height = "auto";
+          e.target.style.height = `${e.target.scrollHeight}px`;
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            void ask(input);
+          }
+        }}
+        rows={1}
+        maxLength={MAX_LENGTH}
+        placeholder="Ask about any US stock…"
+        className="placeholder:text-muted-foreground max-h-48 min-h-10 flex-1 resize-none bg-transparent py-2 text-base outline-none"
+        disabled={busy}
+      />
+      {input.length > MAX_LENGTH - 100 && (
+        <span className="text-muted-foreground self-center text-[11px] tabular-nums">
+          {input.length}/{MAX_LENGTH}
+        </span>
+      )}
+      <Button type="submit" size="icon" className="size-10 shrink-0 rounded-full" disabled={busy || !input.trim()} aria-label="Send question">
+        <ArrowUp aria-hidden />
+      </Button>
+    </form>
+  );
+
+  const empty = messages.length === 0;
+
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="bg-background/95 sticky top-0 z-10 border-b backdrop-blur">
+      <header className="bg-background/90 sticky top-0 z-10 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
-            <LineChart className="size-6 shrink-0" aria-hidden />
-            <div className="min-w-0">
-              <h1 className="text-base leading-tight font-semibold">StockLens AI</h1>
-              <p className="text-muted-foreground hidden truncate text-xs sm:block">Understand US stocks through simple, data-backed AI analysis.</p>
-            </div>
+            <span className="bg-primary text-primary-foreground grid size-7 place-items-center rounded-lg">
+              <LineChart className="size-4" aria-hidden />
+            </span>
+            <h1 className="text-base font-semibold">StockLens AI</h1>
           </div>
           <div className="flex items-center gap-1">
-            {context.activeTicker && (
-              <span className="text-muted-foreground hidden text-xs sm:inline" title="Stocks the next follow-up question refers to">
-                Discussing: {context.activeTicker}
-                {context.secondaryTicker ? `, ${context.secondaryTicker}` : ""}
-              </span>
-            )}
-            <Button variant="ghost" size="sm" onClick={clearConversation} disabled={busy || messages.length === 0} aria-label="Clear conversation">
-              <Trash2 aria-hidden /> <span className="hidden sm:inline">Clear</span>
+            <Button variant="ghost" size="sm" onClick={clearConversation} disabled={busy || empty} aria-label="New chat">
+              <SquarePen aria-hidden /> <span className="hidden sm:inline">New chat</span>
             </Button>
             {showLogout && (
               <Button variant="ghost" size="sm" onClick={logout} aria-label="Log out">
@@ -170,71 +208,48 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 px-4 py-6">
-        {messages.length === 0 && (
-          <section className="space-y-4 py-6">
-            <div className="space-y-1">
-              <h2 className="text-2xl font-semibold">Ask about a US stock</h2>
-              <p className="text-muted-foreground text-sm">
-                Prices, history and news come from market-data providers. All numbers are calculated by the app; Gemini only explains them. Up to two
-                stocks per question.
-              </p>
-              <p className="text-muted-foreground text-xs">
-                Questions are sent to Google Gemini, and a short redacted preview is kept in the debug log. Please don&apos;t type personal information.
-              </p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {SUGGESTIONS.map((s) => (
-                <Button key={s} variant="outline" className="h-auto justify-start py-2 text-left whitespace-normal" onClick={() => ask(s)} disabled={busy}>
-                  {s}
-                </Button>
-              ))}
-            </div>
-          </section>
-        )}
-        {messages.map((m) => (
-          <MessageBubble key={m.id} message={m} onRetry={busy ? undefined : (question) => void ask(question)} />
-        ))}
-        <div ref={endRef} />
-      </main>
-
-      <footer className="bg-background sticky bottom-0 border-t">
-        <form
-          className="mx-auto flex max-w-3xl items-end gap-2 px-4 py-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void ask(input);
-          }}
-        >
-          <label htmlFor="question" className="sr-only">
-            Your question
-          </label>
-          <div className="flex-1">
-            <textarea
-              id="question"
-              value={input}
-              onChange={(e) => setInput(e.target.value.slice(0, MAX_LENGTH))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void ask(input);
-                }
-              }}
-              rows={1}
-              maxLength={MAX_LENGTH}
-              placeholder="e.g. Analyse Microsoft using its last 90 days"
-              className="border-input placeholder:text-muted-foreground focus-visible:ring-ring/50 max-h-40 min-h-10 w-full resize-y rounded-md border bg-transparent px-3 py-2 text-base outline-none focus-visible:ring-[3px] md:text-sm"
-              disabled={busy}
-            />
-            <p className="text-muted-foreground text-right text-[11px]">
-              {input.length}/{MAX_LENGTH}
-            </p>
+      {empty ? (
+        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-6 px-4 pb-16">
+          <div className="space-y-2 text-center">
+            <h2 className="text-2xl font-semibold sm:text-3xl">What would you like to know?</h2>
+            <p className="text-muted-foreground text-sm">Ask about any US-listed stock. Answers use real market data; all numbers are calculated by the app.</p>
           </div>
-          <Button type="submit" disabled={busy || !input.trim()} className="mb-5" aria-label="Send question">
-            <Send aria-hidden /> <span className="hidden sm:inline">Send</span>
-          </Button>
-        </form>
-      </footer>
+          {composer}
+          <div className="flex flex-wrap justify-center gap-2">
+            {SUGGESTIONS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => void ask(s)}
+                disabled={busy}
+                className="hover:bg-accent text-muted-foreground hover:text-foreground rounded-full border px-3 py-1.5 text-left text-sm transition-colors"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          <p className="text-muted-foreground text-center text-xs">
+            Questions are sent to Google Gemini. Please don&apos;t type personal information.
+          </p>
+        </main>
+      ) : (
+        <>
+          <main className="mx-auto w-full max-w-3xl flex-1 space-y-8 px-4 py-6">
+            {messages.map((m) => (
+              <MessageBubble key={m.id} message={m} onRetry={busy ? undefined : (question) => void ask(question)} onAsk={busy ? undefined : (question) => void ask(question)} />
+            ))}
+            <div ref={endRef} />
+          </main>
+          <footer className="bg-background sticky bottom-0">
+            <div className="mx-auto max-w-3xl px-4 pt-2 pb-3">
+              {composer}
+              <p className="text-muted-foreground mt-2 text-center text-[11px]">
+                StockLens AI can&apos;t predict exact prices. Not financial advice.
+              </p>
+            </div>
+          </footer>
+        </>
+      )}
     </div>
   );
 }
