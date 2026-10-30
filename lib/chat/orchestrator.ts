@@ -421,13 +421,13 @@ export async function runChat(request: ChatRequest, deps: OrchestratorDeps): Pro
 }
 
 const FOCUS_HINT: Record<Intent["focus"], string> = {
-  direction: "First sentence: whether it looks bullish or bearish (from the direction). Then the price and range.",
+  direction: "First sentence: whether it looks bullish or bearish (from the direction), with a brief plain-words reason (e.g. trading above or below its recent averages). Then the price and range.",
   future: "Start with the range for the period asked (M:TARGET_ASKED) and say an exact future price cannot be known, then the current price.",
   range: "Start with the range (M:TARGET), then the current price.",
   price: "Start with the current price and today's change.",
   news: "Start with what the recent news says, then the price.",
   risks: "Start with the main risks, then the price.",
-  compare: "Start with the direct comparison of the two stocks.",
+  compare: "First sentence: the direct comparison of the two stocks, with a brief plain-words reason for each verdict.",
   general: "Start with the current price and the direction.",
 };
 const DETAIL_HINT: Record<Intent["detail"], string> = {

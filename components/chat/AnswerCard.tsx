@@ -6,7 +6,7 @@ import { useState } from "react";
 import type { StockAnalysis } from "@/lib/analysis/build";
 import type { ChatResult } from "@/lib/chat/types";
 import type { StockExplanation } from "@/lib/llm/schema";
-import { FRESHNESS_TEXT, formatEt, formatSigned, formatUsd } from "@/lib/format";
+import { FRESHNESS_TEXT, MARKET_STATUS_TEXT, formatEt, formatEtDate, formatSigned, formatUsd } from "@/lib/format";
 import { DirectionBadge } from "@/components/stock/DirectionBadge";
 import { NewsSentiment } from "@/components/stock/NewsSentiment";
 import { PriceChart } from "@/components/stock/PriceChart";
@@ -29,8 +29,15 @@ function KeyFigures({ stock }: { stock: StockAnalysis }) {
   const tone = !quote ? "" : quote.change > 0 ? "text-up" : quote.change < 0 ? "text-down" : "text-sideways";
   return (
     <div className="bg-card overflow-hidden rounded-2xl border">
-      <div className="text-muted-foreground border-b px-4 py-2 text-xs">
-        <span className="text-foreground font-semibold">{company.ticker}</span> · {company.companyName}
+      <div className="text-muted-foreground flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b px-4 py-2 text-xs">
+        <span>
+          <span className="text-foreground font-semibold">{company.ticker}</span> · {company.companyName}
+        </span>
+        {quote && (
+          <span>
+            As of {quote.quoteTimeIsDateOnly ? formatEtDate(quote.quoteTime) : formatEt(quote.quoteTime)} · {MARKET_STATUS_TEXT[quote.marketStatus]}
+          </span>
+        )}
       </div>
       <dl className="divide-border grid grid-cols-2 divide-x divide-y sm:grid-cols-4 sm:divide-y-0 [&>*:nth-child(2n)]:max-sm:border-r-0">
         <Stat label="Price">

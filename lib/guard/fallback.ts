@@ -123,9 +123,26 @@ const VERDICT: Record<string, string> = {
   SIDEWAYS: "is neither bullish nor bearish right now",
 };
 
+/**
+ * A short "because" for the verdict, taken from the strongest agreeing signal, so a bearish
+ * label next to a positive 90-day return is not confusing.
+ */
+function becauseClause(stock: StockAnalysis): string | null {
+  const { direction, signals } = stock.direction;
+  const sign = direction === "UP" ? 1 : direction === "DOWN" ? -1 : 0;
+  if (sign === 0) return direction === "SIDEWAYS" ? "because its signals are mixed" : null;
+  const side = sign === 1 ? "above" : "below";
+  if (signals.s1 === sign) return `because it's trading ${side} its recent averages`;
+  if (signals.s3 === sign) return `because its short-term average is ${side} its longer-term one`;
+  if (signals.s4 === sign) return sign === 1 ? "after a strong gain over the last 90 days" : "after falling over the last 90 days";
+  return null;
+}
+
 function verdictSentence(stock: StockAnalysis, name = shortName(stock)): string {
   const verdict = VERDICT[stock.direction.direction];
-  return verdict ? `${name} ${verdict}.` : `There isn't enough data to say whether ${name} is bullish or bearish right now.`;
+  if (!verdict) return `There isn't enough data to say whether ${name} is bullish or bearish right now.`;
+  const because = becauseClause(stock);
+  return because ? `${name} ${verdict}, ${because}.` : `${name} ${verdict}.`;
 }
 
 function changeSentence(stock: StockAnalysis): string | null {
@@ -166,14 +183,16 @@ function answerForTwo([a, b]: readonly StockAnalysis[], tail: string): string {
   const [na, nb] = [shortName(a), shortName(b)];
   const [da, db] = [a.direction.direction, b.direction.direction];
   const word = (d: string) => ({ UP: "looks bullish", DOWN: "looks bearish", SIDEWAYS: "has no clear trend" })[d] ?? "can't be assessed";
+  const [ba, bb] = [becauseClause(a), becauseClause(b)];
+  const both = (word: string) => `Both ${na} and ${nb} look ${word} right now${ba && ba === bb ? `, ${ba.replace("it's", "they're").replace("its ", "their ")}` : ""}.`;
   const lead =
     da === db && da === "UP"
-      ? `Both ${na} and ${nb} look bullish right now.`
+      ? both("bullish")
       : da === db && da === "DOWN"
-        ? `Both ${na} and ${nb} look bearish right now.`
+        ? both("bearish")
         : da === db && da === "SIDEWAYS"
           ? `Neither ${na} nor ${nb} has a clear trend right now.`
-          : `${na} ${word(da)}, while ${nb} ${word(db)}.`;
+          : `${na} ${word(da)}${ba ? ` ${ba}` : ""}, while ${nb} ${word(db)}${bb ? ` ${bb}` : ""}.`;
   const r90 = (s: StockAnalysis) => value(s, "M:R90");
   const confidence =
     a.confidence.level === b.confidence.level
@@ -181,7 +200,7 @@ function answerForTwo([a, b]: readonly StockAnalysis[], tail: string): string {
       : `Confidence is ${conf(a)} for ${a.company.ticker} and ${conf(b)} for ${b.company.ticker}.`;
   return paragraphs(lead, [
     priceSentence(a, a.company.ticker),
-    priceSentence(b, b.company.ticker),
+    priceSentence(b, b.company.ticker).replace(" from the previous close.", "."),
     r90(a) && r90(b) ? `Over the last 90 days, ${a.company.ticker} changed by ${r90(a)} and ${b.company.ticker} by ${r90(b)}.` : null,
     confidence,
     tail,

@@ -217,7 +217,7 @@ describe("runChat", () => {
     expect(verdict.kind).toBe("analysis");
     if (verdict.kind !== "analysis") return;
     expect(verdict.intent).toEqual({ focus: "direction", detail: "brief" });
-    expect(verdict.explanation.answer.split("\n\n")[0]).toBe("Apple (AAPL) looks bullish right now.");
+    expect(verdict.explanation.answer.split("\n\n")[0]).toBe("Apple (AAPL) looks bullish right now, because it's trading above its recent averages.");
 
     // "Why?" with no stock named: the model links nothing, the app uses the stock being discussed.
     const why = await run("Why?", noExplanation([]), { context: verdict.context }).promise;
