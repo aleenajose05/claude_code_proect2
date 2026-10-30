@@ -1,9 +1,10 @@
-import { LineChart, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 
 import type { TraceStep } from "@/lib/chat/trace";
 import type { ChatResult } from "@/lib/chat/types";
 import { Button } from "@/components/ui/button";
 import { AnswerCard } from "./AnswerCard";
+import { BrandMark } from "./BrandMark";
 
 export type Message =
   | { id: string; role: "user"; text: string }
@@ -28,11 +29,7 @@ function progressLabel(steps: TraceStep[]): string {
 }
 
 function Avatar() {
-  return (
-    <span className="bg-primary text-primary-foreground mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg" aria-hidden>
-      <LineChart className="size-4" />
-    </span>
-  );
+  return <BrandMark className="mt-1 size-6 rounded-md [&_svg]:size-3.5" />;
 }
 
 export function MessageBubble({
@@ -47,7 +44,7 @@ export function MessageBubble({
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
-        <p className="bg-muted max-w-[85%] rounded-3xl px-4 py-2.5 text-base break-words whitespace-pre-wrap">{message.text}</p>
+        <p className="bg-secondary max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed break-words whitespace-pre-wrap">{message.text}</p>
       </div>
     );
   }
@@ -58,7 +55,7 @@ export function MessageBubble({
         {message.result ? (
           <AnswerCard result={message.result} onAsk={onAsk} requestId={message.requestId} />
         ) : message.error ? (
-          <div role="alert" className="space-y-2 text-base">
+          <div role="alert" className="space-y-3 font-serif text-[16.5px] leading-[1.7]">
             <p>{message.error}</p>
             {onRetry && (
               <Button variant="outline" size="sm" onClick={() => onRetry(message.question)}>
@@ -67,7 +64,8 @@ export function MessageBubble({
             )}
           </div>
         ) : (
-          <p className="text-muted-foreground animate-pulse pt-1 text-base" aria-live="polite">
+          <p className="text-muted-foreground flex items-center gap-2.5 pt-1 text-[15px]" aria-live="polite">
+            <span className="bg-brand size-2 animate-pulse rounded-full" aria-hidden />
             {progressLabel(message.steps)}
           </p>
         )}

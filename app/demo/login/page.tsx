@@ -1,28 +1,24 @@
 import type { Metadata } from "next";
 
 import { LoginForm } from "@/components/auth/LoginForm";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BrandMark } from "@/components/chat/BrandMark";
 
 export const metadata: Metadata = { title: "Log in · StockLens AI" };
 
 export default function DemoLoginPage() {
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-12">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">StockLens AI</CardTitle>
-          <CardDescription>Understand US stocks through simple, data-backed AI analysis.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-muted-foreground text-sm">
-            This is a private portfolio demo. The free market-data plans it uses are licensed for personal use, so access is password-protected.
-          </p>
-          <LoginForm scope="demo" redirectTo="/" />
-        </CardContent>
-      </Card>
-      <p className="text-muted-foreground text-center text-xs">
-        Not financial advice. Stock market investments involve risk. Market data may be delayed.
-      </p>
+    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-8 px-4 py-12">
+      <div className="space-y-3 text-center">
+        <BrandMark className="mx-auto size-10 rounded-xl [&_svg]:size-5" />
+        <h1 className="font-serif text-3xl tracking-tight">Welcome to StockLens</h1>
+        <p className="text-muted-foreground text-sm">
+          Understand US stocks through simple, data-backed AI analysis. This private demo is password-protected.
+        </p>
+      </div>
+      <div className="bg-card rounded-2xl border p-6 shadow-[0_10px_30px_-14px_rgba(30,25,15,0.18)]">
+        <LoginForm scope="demo" redirectTo="/" />
+      </div>
+      <p className="text-muted-foreground text-center text-xs">Not financial advice. Market data may be delayed.</p>
     </main>
   );
 }

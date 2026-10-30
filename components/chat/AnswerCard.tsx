@@ -12,64 +12,61 @@ import { NewsSentiment } from "@/components/stock/NewsSentiment";
 import { PriceChart } from "@/components/stock/PriceChart";
 import { StockSummary } from "@/components/stock/StockSummary";
 
-/** One compact line of the key numbers, so the answer stays conversational. */
+function Stat({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0 px-4 py-3">
+      <dt className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">{label}</dt>
+      <dd className="mt-1 text-sm font-medium tabular-nums">{children}</dd>
+    </div>
+  );
+}
+
+/** The key numbers in one calm panel, so the answer itself stays conversational. */
 function KeyFigures({ stock }: { stock: StockAnalysis }) {
   const { quote, company, confidence, direction } = stock;
   const range = stock.askedTarget?.range ?? stock.target;
-  const rangeLabel = stock.askedTarget ? `Range, ${stock.askedTarget.horizon.label}` : "Range, ~20 trading days";
+  const rangeLabel = stock.askedTarget ? `Range · ${stock.askedTarget.horizon.label}` : "Range · ~20 days";
   const tone = !quote ? "" : quote.change > 0 ? "text-up" : quote.change < 0 ? "text-down" : "text-sideways";
   return (
-    <dl className="bg-muted/40 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border px-4 py-3 text-sm">
-      <div>
-        <dt className="sr-only">Stock</dt>
-        <dd className="font-semibold">{company.ticker}</dd>
+    <div className="bg-card overflow-hidden rounded-2xl border">
+      <div className="text-muted-foreground border-b px-4 py-2 text-xs">
+        <span className="text-foreground font-semibold">{company.ticker}</span> · {company.companyName}
       </div>
-      <div>
-        <dt className="sr-only">Price</dt>
-        <dd className="tabular-nums">
+      <dl className="divide-border grid grid-cols-2 divide-x divide-y sm:grid-cols-4 sm:divide-y-0 [&>*:nth-child(2n)]:max-sm:border-r-0">
+        <Stat label="Price">
           {quote ? (
             <>
-              <span className="font-semibold">{formatUsd(quote.price)}</span>{" "}
-              <span className={tone}>({formatSigned(quote.changePercent)}%)</span>
+              {formatUsd(quote.price)} <span className={tone}>{formatSigned(quote.changePercent)}%</span>
             </>
           ) : (
-            "Price unavailable"
+            "Unavailable"
           )}
-        </dd>
-      </div>
-      <div>
-        <dt className="sr-only">Direction</dt>
-        <dd>
-          <DirectionBadge direction={direction.direction} className="px-1.5 py-0.5 text-xs" />
-        </dd>
-      </div>
-      <div>
-        <dt className="text-muted-foreground inline text-xs">{rangeLabel}: </dt>
-        <dd className="inline tabular-nums">{range.available ? `${formatUsd(range.low)} – ${formatUsd(range.high)}` : "unavailable"}</dd>
-      </div>
-      <div>
-        <dt className="text-muted-foreground inline text-xs">Confidence: </dt>
-        <dd className="inline font-medium">{confidence.level}</dd>
-      </div>
-    </dl>
+        </Stat>
+        <Stat label="Trend">
+          <DirectionBadge direction={direction.direction} className="px-1.5 py-0 text-xs" />
+        </Stat>
+        <Stat label={rangeLabel}>{range.available ? `${formatUsd(range.low)} – ${formatUsd(range.high)}` : "Unavailable"}</Stat>
+        <Stat label="Confidence">{confidence.level}</Stat>
+      </dl>
+    </div>
   );
 }
 
 function ShortExplanation({ text, showTicker }: { text: StockExplanation; showTicker: boolean }) {
   return (
-    <div className="space-y-3 text-base leading-relaxed">
-      {showTicker && <p className="font-semibold">{text.ticker}</p>}
+    <div className="space-y-4 font-serif text-[16.5px] leading-[1.7]">
+      {showTicker && <p className="font-sans text-sm font-semibold">{text.ticker}</p>}
       <div>
-        <p className="font-medium">Why</p>
-        <ul className="mt-1 list-disc space-y-1 pl-5">
+        <p className="font-sans text-sm font-semibold">Why</p>
+        <ul className="marker:text-muted-foreground mt-1.5 list-disc space-y-1.5 pl-5">
           {text.reasons.map((r) => (
             <li key={r.text}>{r.text}</li>
           ))}
         </ul>
       </div>
       <div>
-        <p className="font-medium">Risks to keep in mind</p>
-        <ul className="mt-1 list-disc space-y-1 pl-5">
+        <p className="font-sans text-sm font-semibold">Risks to keep in mind</p>
+        <ul className="marker:text-muted-foreground mt-1.5 list-disc space-y-1.5 pl-5">
           {text.risks.map((r) => (
             <li key={r.text}>{r.text}</li>
           ))}
@@ -192,8 +189,8 @@ export function AnswerCard({ result, onAsk, requestId }: { result: ChatResult; o
     .filter((q, i, all) => all.findIndex((x) => x.toLowerCase() === q.toLowerCase()) === i)
     .slice(0, 4);
   return (
-    <div className="space-y-4">
-      <p className="text-base leading-relaxed whitespace-pre-line">{result.explanation.answer}</p>
+    <div className="animate-in fade-in slide-in-from-bottom-1 space-y-5 duration-500">
+      <p className="font-serif text-[16.5px] leading-[1.7] whitespace-pre-line">{result.explanation.answer}</p>
 
       {showReasons &&
         result.stocks.map((stock) => {
@@ -201,7 +198,7 @@ export function AnswerCard({ result, onAsk, requestId }: { result: ChatResult; o
           return text ? <ShortExplanation key={stock.company.ticker} text={text} showTicker={two} /> : null;
         })}
 
-      {showReasons && result.explanation.comparison && <p className="text-base leading-relaxed">{result.explanation.comparison}</p>}
+      {showReasons && result.explanation.comparison && <p className="font-serif text-[16.5px] leading-[1.7]">{result.explanation.comparison}</p>}
 
       <div className="space-y-2">
         {result.stocks.map((stock) => (
@@ -215,7 +212,7 @@ export function AnswerCard({ result, onAsk, requestId }: { result: ChatResult; o
         </p>
       ))}
 
-      <div className="text-muted-foreground -ml-2 flex items-center gap-1">
+      <div className="text-muted-foreground -mt-1 -ml-2 flex items-center gap-0.5">
         <ActionButton onClick={() => setOpen((v) => !v)} pressed={open} label={open ? "Hide chart & sources" : "Chart & sources"}>
           <ChartLine aria-hidden />
         </ActionButton>
@@ -225,7 +222,7 @@ export function AnswerCard({ result, onAsk, requestId }: { result: ChatResult; o
       </div>
 
       {open && (
-        <div className="space-y-8 rounded-2xl border p-4 sm:p-5">
+        <div className="bg-card animate-in fade-in space-y-8 rounded-2xl border p-4 duration-300 sm:p-6">
           {result.stocks.map((stock) => (
             <Details
               key={stock.company.ticker}
@@ -245,7 +242,7 @@ export function AnswerCard({ result, onAsk, requestId }: { result: ChatResult; o
       )}
 
       {onAsk && chips.length > 0 && (
-        <ul className="divide-y border-t">
+        <ul className="divide-y border-t pt-1">
           {chips.map((q) => (
             <li key={q}>
               <button

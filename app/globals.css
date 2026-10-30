@@ -4,27 +4,30 @@
 /* Dark mode follows the operating system setting. */
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
+/* Warm, paper-like palette: calm surfaces, soft borders, one deep teal accent. */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  /* Price-direction colours. Always paired with a text label in the UI. */
+  --radius: 0.875rem;
+  --background: #f8f7f3;
+  --foreground: #1f1e1b;
+  --card: #ffffff;
+  --card-foreground: #1f1e1b;
+  --popover: #ffffff;
+  --popover-foreground: #1f1e1b;
+  --primary: #262521;
+  --primary-foreground: #faf9f6;
+  --secondary: #efede7;
+  --secondary-foreground: #262521;
+  --muted: #f0eee8;
+  --muted-foreground: #6e6a61;
+  --accent: #ece9e1;
+  --accent-foreground: #1f1e1b;
+  --destructive: #b42318;
+  --border: #e4e0d6;
+  --input: #dcd8cd;
+  --ring: #9fb8b3;
+  --brand: #146b60;
+  --brand-foreground: #ffffff;
+  /* Price-direction colours (validated for contrast). Always paired with a text label. */
   --up: #15803d;
   --down: #b91c1c;
   --sideways: #525252;
@@ -32,24 +35,26 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
+    --background: #1b1a18;
+    --foreground: #ebe8e1;
+    --card: #23221f;
+    --card-foreground: #ebe8e1;
+    --popover: #23221f;
+    --popover-foreground: #ebe8e1;
+    --primary: #ebe8e1;
+    --primary-foreground: #1b1a18;
+    --secondary: #2b2a26;
+    --secondary-foreground: #ebe8e1;
+    --muted: #292825;
+    --muted-foreground: #a29e94;
+    --accent: #2f2d29;
+    --accent-foreground: #ebe8e1;
+    --destructive: #f97066;
+    --border: #35332e;
+    --input: #3d3b35;
+    --ring: #3f7f76;
+    --brand: #5cc2b3;
+    --brand-foreground: #10201d;
     --up: #4ade80;
     --down: #f87171;
     --sideways: #a3a3a3;
@@ -57,10 +62,11 @@
 }
 
 @theme inline {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Source Serif 4 Variable", ui-serif, Georgia, "Times New Roman", serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --color-background: var(--background);
@@ -81,6 +87,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-up: var(--up);
   --color-down: var(--down);
   --color-sideways: var(--sideways);
@@ -92,5 +100,10 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--brand) 22%, transparent);
   }
 }

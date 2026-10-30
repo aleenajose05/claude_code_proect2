@@ -1,24 +1,30 @@
 "use client";
 
-import { ArrowUp, LineChart, LogOut, SquarePen } from "lucide-react";
+import { ArrowUp, CalendarRange, LogOut, Newspaper, Scale, SquarePen, TrendingUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { CONTEXT_STORAGE_KEY, EMPTY_CONTEXT, parseStoredContext, serializeContext } from "@/lib/chat/session-context";
 import type { ChatStreamEvent, ConversationContext } from "@/lib/chat/types";
 import { Button } from "@/components/ui/button";
+import { BrandMark } from "./BrandMark";
 import { MessageBubble, type Message } from "./MessageBubble";
 
 const MAX_LENGTH = 500;
 
 const SUGGESTIONS = [
-  "What is happening with Apple stock today?",
-  "Analyse NVIDIA stock.",
-  "Is Tesla looking bullish or bearish?",
-  "Compare NVIDIA with Apple.",
-  "What are the latest news and risks affecting Google stock?",
-  "Where could Microsoft stock be in 60 days?",
+  { icon: TrendingUp, title: "Bullish or bearish?", question: "Is Tesla looking bullish or bearish?" },
+  { icon: CalendarRange, title: "Where in 60 days?", question: "Where could Microsoft stock be in 60 days?" },
+  { icon: Scale, title: "Compare two stocks", question: "Compare NVIDIA with Apple." },
+  { icon: Newspaper, title: "News and risks", question: "What are the latest news and risks affecting Google stock?" },
 ];
+
+function greetingFor(hour: number): string {
+  if (hour < 5) return "Good evening";
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
 
 function loadContext(): ConversationContext {
   try {
@@ -44,6 +50,8 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [context, setContext] = useState<ConversationContext>(EMPTY_CONTEXT);
+  // Uses the visitor's own clock, so it is set after mount (the server cannot know it).
+  const [greeting, setGreeting] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -51,6 +59,7 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
     // sessionStorage only exists in the browser, so it is read after mount.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setContext(loadContext());
+    setGreeting(greetingFor(new Date().getHours()));
   }, []);
   // Braces matter: scrollIntoView returns a Promise in newer browsers, and an effect may only return a cleanup function.
   useEffect(() => {
@@ -142,7 +151,7 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
 
   const composer = (
     <form
-      className="bg-background focus-within:ring-ring/40 relative flex items-end gap-2 rounded-3xl border p-2 pl-4 shadow-sm focus-within:ring-[3px]"
+      className="bg-card focus-within:border-ring/70 rounded-[1.4rem] border shadow-[0_1px_2px_rgba(30,25,15,0.04),0_10px_30px_-14px_rgba(30,25,15,0.18)] transition-colors"
       onSubmit={(e) => {
         e.preventDefault();
         void ask(input);
@@ -168,18 +177,23 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
         }}
         rows={1}
         maxLength={MAX_LENGTH}
-        placeholder="Ask about any US stock…"
-        className="placeholder:text-muted-foreground max-h-48 min-h-10 flex-1 resize-none bg-transparent py-2 text-base outline-none"
+        placeholder="How can I help with your stocks today?"
+        className="placeholder:text-muted-foreground/80 block max-h-52 min-h-14 w-full resize-none bg-transparent px-4 pt-4 pb-1 text-[15px] leading-relaxed outline-none"
         disabled={busy}
       />
-      {input.length > MAX_LENGTH - 100 && (
-        <span className="text-muted-foreground self-center text-[11px] tabular-nums">
-          {input.length}/{MAX_LENGTH}
+      <div className="flex items-center justify-between gap-2 px-3 pb-3">
+        <span className="text-muted-foreground px-1 text-xs">
+          {input.length > MAX_LENGTH - 100 ? `${input.length}/${MAX_LENGTH}` : "US-listed stocks · up to 2 per question"}
         </span>
-      )}
-      <Button type="submit" size="icon" className="size-10 shrink-0 rounded-full" disabled={busy || !input.trim()} aria-label="Send question">
-        <ArrowUp aria-hidden />
-      </Button>
+        <button
+          type="submit"
+          disabled={busy || !input.trim()}
+          aria-label="Send question"
+          className="bg-brand text-brand-foreground grid size-8 place-items-center rounded-lg transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          <ArrowUp className="size-4" strokeWidth={2.5} aria-hidden />
+        </button>
+      </div>
     </form>
   );
 
@@ -187,20 +201,20 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="bg-background/90 sticky top-0 z-10 backdrop-blur">
+      <header className="bg-background/85 sticky top-0 z-10 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="bg-primary text-primary-foreground grid size-7 place-items-center rounded-lg">
-              <LineChart className="size-4" aria-hidden />
-            </span>
-            <h1 className="text-base font-semibold">StockLens AI</h1>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <BrandMark />
+            <h1 className="font-serif text-lg font-medium tracking-tight">StockLens</h1>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={clearConversation} disabled={busy || empty} aria-label="New chat">
-              <SquarePen aria-hidden /> <span className="hidden sm:inline">New chat</span>
-            </Button>
+            {!empty && (
+              <Button variant="ghost" size="sm" onClick={clearConversation} disabled={busy} aria-label="New chat" className="text-muted-foreground">
+                <SquarePen aria-hidden /> <span className="hidden sm:inline">New chat</span>
+              </Button>
+            )}
             {showLogout && (
-              <Button variant="ghost" size="sm" onClick={logout} aria-label="Log out">
+              <Button variant="ghost" size="sm" onClick={logout} aria-label="Log out" className="text-muted-foreground">
                 <LogOut aria-hidden /> <span className="hidden sm:inline">Log out</span>
               </Button>
             )}
@@ -209,43 +223,48 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
       </header>
 
       {empty ? (
-        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-6 px-4 pb-16">
-          <div className="space-y-2 text-center">
-            <h2 className="text-2xl font-semibold sm:text-3xl">What would you like to know?</h2>
-            <p className="text-muted-foreground text-sm">Ask about any US-listed stock. Answers use real market data; all numbers are calculated by the app.</p>
+        <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-8 px-4 pb-20">
+          <div className="animate-in fade-in slide-in-from-bottom-2 space-y-3 text-center duration-500">
+            <BrandMark className="mx-auto size-10 rounded-xl [&_svg]:size-5" />
+            <h2 className="font-serif text-3xl font-normal tracking-tight sm:text-[2.6rem]">
+              {greeting ? `${greeting}.` : "\u00a0"}
+            </h2>
+            <p className="text-muted-foreground mx-auto max-w-md text-[15px]">
+              Ask anything about a US stock. Answers use real market data, with every number calculated by the app.
+            </p>
           </div>
           {composer}
-          <div className="flex flex-wrap justify-center gap-2">
-            {SUGGESTIONS.map((s) => (
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {SUGGESTIONS.map(({ icon: Icon, title, question }) => (
               <button
-                key={s}
+                key={question}
                 type="button"
-                onClick={() => void ask(s)}
+                onClick={() => void ask(question)}
                 disabled={busy}
-                className="hover:bg-accent text-muted-foreground hover:text-foreground rounded-full border px-3 py-1.5 text-left text-sm transition-colors"
+                className="bg-card/60 hover:bg-card group flex items-start gap-3 rounded-2xl border p-3.5 text-left transition-all hover:shadow-[0_6px_20px_-12px_rgba(30,25,15,0.25)]"
               >
-                {s}
+                <Icon className="text-brand mt-0.5 size-4 shrink-0" aria-hidden />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium">{title}</span>
+                  <span className="text-muted-foreground block text-sm">{question}</span>
+                </span>
               </button>
             ))}
           </div>
-          <p className="text-muted-foreground text-center text-xs">
-            Questions are sent to Google Gemini. Please don&apos;t type personal information.
-          </p>
+          <p className="text-muted-foreground text-center text-xs">Not financial advice. Please don&apos;t share personal information.</p>
         </main>
       ) : (
         <>
-          <main className="mx-auto w-full max-w-3xl flex-1 space-y-8 px-4 py-6">
+          <main className="mx-auto w-full max-w-3xl flex-1 space-y-10 px-4 pt-6 pb-10">
             {messages.map((m) => (
               <MessageBubble key={m.id} message={m} onRetry={busy ? undefined : (question) => void ask(question)} onAsk={busy ? undefined : (question) => void ask(question)} />
             ))}
             <div ref={endRef} />
           </main>
-          <footer className="bg-background sticky bottom-0">
-            <div className="mx-auto max-w-3xl px-4 pt-2 pb-3">
+          <footer className="from-background via-background sticky bottom-0 bg-gradient-to-t from-60% to-transparent pt-6">
+            <div className="mx-auto max-w-3xl px-4 pb-3">
               {composer}
-              <p className="text-muted-foreground mt-2 text-center text-[11px]">
-                StockLens AI can&apos;t predict exact prices. Not financial advice.
-              </p>
+              <p className="text-muted-foreground mt-2 text-center text-[11px]">StockLens can&apos;t predict exact prices. Not financial advice.</p>
             </div>
           </footer>
         </>
