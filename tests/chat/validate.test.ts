@@ -121,6 +121,8 @@ describe("validateExplanation", () => {
 
     const fallback = fallbackExplanation([asked]);
     expect(fallback.answer).toContain("can't be known");
+    // The direct answer stands alone as the first paragraph.
+    expect(fallback.answer.split("\n\n")[0]).toBe(`Test (TEST) would typically trade between $${range.low.toFixed(2)} and $${range.high.toFixed(2)} over the next 60 days.`);
     expect(fallback.answer).toContain(`$${range.low.toFixed(2)}`);
     expect(validateExplanation(fallback, [asked])).toMatchObject({ ok: true });
   });

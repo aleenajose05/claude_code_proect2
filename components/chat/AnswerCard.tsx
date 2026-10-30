@@ -190,7 +190,15 @@ export function AnswerCard({ result, onAsk, requestId }: { result: ChatResult; o
     .slice(0, 4);
   return (
     <div className="animate-in fade-in slide-in-from-bottom-1 space-y-5 duration-500">
-      <p className="font-serif text-[16.5px] leading-[1.7] whitespace-pre-line">{result.explanation.answer}</p>
+      <div className="space-y-3 font-serif text-[16.5px] leading-[1.7]">
+        {result.explanation.answer
+          .split(/\n\s*\n/)
+          .map((paragraph) => paragraph.trim())
+          .filter(Boolean)
+          .map((paragraph, i) => (
+            <p key={i}>{paragraph}</p>
+          ))}
+      </div>
 
       {showReasons &&
         result.stocks.map((stock) => {

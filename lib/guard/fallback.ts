@@ -104,22 +104,6 @@ function priceSentence(stock: StockAnalysis, name: string): string {
   return `${name} is at ${usd(q.price)}, ${move} ${usd(Math.abs(q.change))} (${Math.abs(q.changePercent).toFixed(2)}%) from the previous close.`;
 }
 
-function answerForTwo([a, b]: readonly StockAnalysis[]): string {
-  const r90 = (s: StockAnalysis) => value(s, "M:R90");
-  const parts = [`${priceSentence(a, a.company.ticker)} ${priceSentence(b, b.company.ticker)}`];
-  if (r90(a) && r90(b)) parts.push(`Over the last 90 days, ${a.company.ticker} changed by ${r90(a)} and ${b.company.ticker} by ${r90(b)}.`);
-  const [da, db] = [a.direction.direction, b.direction.direction];
-  if (da === db && da !== "UNAVAILABLE") {
-    const confidence =
-      a.confidence.level === b.confidence.level
-        ? `both with ${a.confidence.level} confidence`
-        : `with ${a.confidence.level} and ${b.confidence.level} confidence respectively`;
-    parts.push(`Both have a rule-based ${da} trend (${LEANING[da]}), ${confidence}.`);
-  } else {
-    parts.push(`The rule-based trend is ${da} for ${a.company.ticker} and ${db} for ${b.company.ticker}.`);
-  }
-  return parts.join(" ");
-}
 
 /** "Tesla Inc" -> "Tesla"; keeps the ticker so the stock is unambiguous. */
 function shortName(stock: StockAnalysis): string {
@@ -127,31 +111,39 @@ function shortName(stock: StockAnalysis): string {
   return `${name} (${stock.company.ticker})`;
 }
 
-function verdictSentence(stock: StockAnalysis): string {
-  const name = shortName(stock);
-  const conf = stock.confidence.level;
-  switch (stock.direction.direction) {
-    case "UP":
-      return `${name} looks bullish right now: its rule-based trend is UP, with ${conf} confidence.`;
-    case "DOWN":
-      return `${name} looks bearish right now: its rule-based trend is DOWN, with ${conf} confidence.`;
-    case "SIDEWAYS":
-      return `${name} is neither bullish nor bearish right now: its rule-based trend is SIDEWAYS, with ${conf} confidence.`;
-    default:
-      return `There isn't enough data to say whether ${name} is bullish or bearish right now.`;
-  }
+/** One short verdict word per direction, used in the first sentence. */
+const VERDICT: Record<string, string> = {
+  UP: "looks bullish right now",
+  DOWN: "looks bearish right now",
+  SIDEWAYS: "is neither bullish nor bearish right now",
+};
+
+function verdictSentence(stock: StockAnalysis, name = shortName(stock)): string {
+  const verdict = VERDICT[stock.direction.direction];
+  return verdict ? `${name} ${verdict}.` : `There isn't enough data to say whether ${name} is bullish or bearish right now.`;
 }
 
-function rangeSentence(stock: StockAnalysis): string | null {
-  const asked = stock.askedTarget;
-  if (asked) {
-    return asked.range.available
-      ? `An exact price ${asked.horizon.label} from now can't be known, but based on its recent volatility it would typically trade between ${usd(asked.range.low)} and ${usd(asked.range.high)} over that period.`
-      : `An exact price ${asked.horizon.label} from now can't be known, and there isn't enough recent data to estimate a range.`;
-  }
+function changeSentence(stock: StockAnalysis): string | null {
+  const q = stock.quote;
+  if (!q) return null;
+  if (q.change === 0) return "That's unchanged from the previous close.";
+  return `That's ${q.change > 0 ? "up" : "down"} ${usd(Math.abs(q.change))} (${Math.abs(q.changePercent).toFixed(2)}%) from the previous close.`;
+}
+
+function standardRangeSentence(stock: StockAnalysis): string | null {
   return stock.target.available
     ? `Over the next ~${stock.target.horizonSessions} trading days its usual range is ${usd(stock.target.low)} to ${usd(stock.target.high)}.`
     : null;
+}
+
+function newsLead(stock: StockAnalysis, name: string): string {
+  const items = stock.news?.items ?? [];
+  if (!stock.news) return `Recent news on ${name} is unavailable right now.`;
+  if (items.length === 0) return `There's no recent news on ${name} from the last 7 days.`;
+  const positive = items.filter((n) => n.sentimentLabel === "POSITIVE").length;
+  const negative = items.filter((n) => n.sentimentLabel === "NEGATIVE").length;
+  const tone = positive > negative ? "mostly positive" : negative > positive ? "mostly negative" : "mixed";
+  return `Recent news on ${name} is ${tone}.`;
 }
 
 const DETAIL_TAIL: Record<DetailLevel, string> = {
@@ -160,34 +152,94 @@ const DETAIL_TAIL: Record<DetailLevel, string> = {
   detailed: "Here's the full picture: the reasons, the risks, recent news and the price chart.",
 };
 
-/** Direct answer first: the figure the question asked for, then supporting context. */
+const paragraphs = (lead: string, rest: (string | null)[]) => {
+  const body = rest.filter(Boolean).join(" ");
+  return body ? `${lead}\n\n${body}` : lead;
+};
+
+function answerForTwo([a, b]: readonly StockAnalysis[], tail: string): string {
+  const [na, nb] = [shortName(a), shortName(b)];
+  const [da, db] = [a.direction.direction, b.direction.direction];
+  const word = (d: string) => ({ UP: "looks bullish", DOWN: "looks bearish", SIDEWAYS: "has no clear trend" })[d] ?? "can't be assessed";
+  const lead =
+    da === db && da === "UP"
+      ? `Both ${na} and ${nb} look bullish right now.`
+      : da === db && da === "DOWN"
+        ? `Both ${na} and ${nb} look bearish right now.`
+        : da === db && da === "SIDEWAYS"
+          ? `Neither ${na} nor ${nb} has a clear trend right now.`
+          : `${na} ${word(da)}, while ${nb} ${word(db)}.`;
+  const r90 = (s: StockAnalysis) => value(s, "M:R90");
+  const confidence =
+    a.confidence.level === b.confidence.level
+      ? `Confidence is ${a.confidence.level} for both.`
+      : `Confidence is ${a.confidence.level} for ${a.company.ticker} and ${b.confidence.level} for ${b.company.ticker}.`;
+  return paragraphs(lead, [
+    priceSentence(a, a.company.ticker),
+    priceSentence(b, b.company.ticker),
+    r90(a) && r90(b) ? `Over the last 90 days, ${a.company.ticker} changed by ${r90(a)} and ${b.company.ticker} by ${r90(b)}.` : null,
+    confidence,
+    tail,
+  ]);
+}
+
+/**
+ * Like a person answering: the first sentence is the direct answer on its own, then a
+ * second paragraph with the supporting figures.
+ */
 function answerFor(stocks: readonly StockAnalysis[], intent: Intent): string {
   const tail = DETAIL_TAIL[intent.detail];
-  if (stocks.length === 2) return [answerForTwo(stocks), tail].filter(Boolean).join(" ");
+  if (stocks.length === 2) return answerForTwo(stocks, tail);
   const [stock] = stocks;
-  const range = rangeSentence(stock);
+  const name = shortName(stock);
   const trend = trendSentence(stock);
   // "Why?" and "explain more" are about the verdict, so they lead with it.
-  const focus = intent.focus === "general" && intent.detail !== "brief" ? "direction" : intent.focus;
-  let parts: (string | null)[];
+  const focus =
+    intent.focus === "general" && stock.askedTarget ? "future" : intent.focus === "general" && intent.detail !== "brief" ? "direction" : intent.focus;
+
   switch (focus) {
     case "direction":
-      parts = [verdictSentence(stock), priceSentence(stock, "It"), range];
-      break;
-    case "future":
+      return paragraphs(verdictSentence(stock, name), [
+        stock.direction.direction === "UNAVAILABLE" ? null : `Its rule-based trend is ${stock.direction.direction}, with ${stock.confidence.level} confidence.`,
+        priceSentence(stock, "It"),
+        standardRangeSentence(stock),
+        tail,
+      ]);
+    case "future": {
+      const asked = stock.askedTarget;
+      if (!asked || !asked.range.available) {
+        return paragraphs(`An exact future price for ${name} can't be known, and there isn't enough recent data to estimate a range.`, [priceSentence(stock, "It"), trend, tail]);
+      }
+      return paragraphs(`${name} would typically trade between ${usd(asked.range.low)} and ${usd(asked.range.high)} over the next ${asked.horizon.label}.`, [
+        "That's a statistical range based on its recent volatility, not a prediction; an exact future price can't be known.",
+        priceSentence(stock, "It"),
+        trend,
+        tail,
+      ]);
+    }
     case "range":
-      parts = [range ?? "A price range can't be estimated from the available data.", priceSentence(stock, shortName(stock)), trend];
-      break;
+      return paragraphs(
+        stock.target.available
+          ? `${name}'s usual range over the next ~${stock.target.horizonSessions} trading days is ${usd(stock.target.low)} to ${usd(stock.target.high)}.`
+          : `A price range for ${name} can't be estimated from the available data.`,
+        ["That's a statistical range based on its recent volatility, not a prediction.", priceSentence(stock, "It"), trend, tail],
+      );
     case "news":
-      parts = [newsSummaryFor(stock), priceSentence(stock, shortName(stock)), trend];
-      break;
-    case "risks":
-      parts = [`The main risks for ${shortName(stock)}: ${risksFor(stock).map((r) => r.text).join(" ")}`, priceSentence(stock, "It")];
-      break;
+      return paragraphs(newsLead(stock, name), [newsSummaryFor(stock), priceSentence(stock, "It"), trend, tail]);
+    case "risks": {
+      const [first, second] = risksFor(stock);
+      return paragraphs(`The biggest risk for ${name}: ${first.text}`, [second?.text ?? null, priceSentence(stock, "It"), tail]);
+    }
+    case "price":
+      return paragraphs(stock.quote ? `${name} is at ${usd(stock.quote.price)}.` : `The latest price for ${name} is unavailable right now.`, [
+        changeSentence(stock),
+        trend,
+        standardRangeSentence(stock),
+        tail,
+      ]);
     default:
-      parts = [priceSentence(stock, shortName(stock)), trend, range];
+      return paragraphs(priceSentence(stock, name), [trend, standardRangeSentence(stock), tail]);
   }
-  return [...parts, tail].filter(Boolean).join(" ");
 }
 
 function followUpsFor(stocks: readonly StockAnalysis[]): string[] {

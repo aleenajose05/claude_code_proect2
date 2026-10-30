@@ -421,7 +421,7 @@ export async function runChat(request: ChatRequest, deps: OrchestratorDeps): Pro
 }
 
 const FOCUS_HINT: Record<Intent["focus"], string> = {
-  direction: "Start by saying whether it looks bullish or bearish (from the direction), then give the price and range.",
+  direction: "First sentence: whether it looks bullish or bearish (from the direction). Then the price and range.",
   future: "Start with the range for the period asked (M:TARGET_ASKED) and say an exact future price cannot be known, then the current price.",
   range: "Start with the range (M:TARGET), then the current price.",
   price: "Start with the current price and today's change.",
@@ -431,9 +431,9 @@ const FOCUS_HINT: Record<Intent["focus"], string> = {
   general: "Start with the current price and the direction.",
 };
 const DETAIL_HINT: Record<Intent["detail"], string> = {
-  brief: "Keep the answer to 2 or 3 short sentences.",
-  why: "Answer in 2 or 3 sentences: the verdict, then the main reason in plain words. The reasons and risks will be shown below your answer.",
-  detailed: "Answer in 4 to 6 sentences covering the verdict, the key reasons, the main risks and what the news suggests.",
+  brief: "Second paragraph: 2 or 3 short sentences.",
+  why: "Second paragraph: 2 or 3 sentences giving the main reason in plain words. The reasons and risks will be shown below your answer.",
+  detailed: "Second paragraph: 4 to 6 sentences covering the key reasons, the main risks and what the news suggests.",
 };
 
 function explanationPayload(question: string, intent: Intent, stocks: readonly StockAnalysis[]) {

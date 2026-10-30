@@ -37,7 +37,10 @@ export const EXPLANATION_INSTRUCTIONS = `${SYSTEM_PROMPT}
 
 You will receive the user's question and, for each stock, server-verified evidence items. Each item has an id (like "M:SMA20" or "N:2"), a label and a value.
 Write a reply as JSON matching the response schema, in the friendly, direct style of a helpful chat assistant:
-- answer: FIRST answer exactly what the user asked, before any background. Follow the "howToAnswer" instruction in the data for what to lead with and how long to be.
+- answer: write it in two parts, the way a thoughtful person answers a question:
+  · First paragraph: ONE short sentence that directly answers exactly what was asked, on its own (for example "Tesla (TSLA) looks bullish right now." or "Microsoft (MSFT) would typically trade between $X and $Y over the next 60 days.").
+  · Then a blank line (two newline characters).
+  · Second paragraph: the supporting figures and context. Follow the "howToAnswer" instruction in the data for what to lead with and how long to be.
   · Lead with the specific figure they asked for (price, change, direction, range), copied exactly from the evidence.
   · If they ask for a future price ("after 60 days", "next month"), say plainly that an exact future price cannot be known, then give the range from M:TARGET_ASKED (or M:TARGET if there is no M:TARGET_ASKED) and the current price.
   · If they ask "bullish or bearish", answer with the direction first (UP = leaning bullish, DOWN = leaning bearish, SIDEWAYS = no clear trend) and the confidence level.
