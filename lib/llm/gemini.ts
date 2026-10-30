@@ -55,8 +55,8 @@ function logFailure(model: string, error: unknown, startedAt: number) {
   console.warn(`[gemini] model=${model} failed: ${name} status=${status} after ${Date.now() - startedAt} ms ${detail}`.trim());
 }
 
-/** Statuses after which the fallback model is worth trying. */
-const FALLBACK_STATUSES = new Set([404, 429, 500, 503]);
+/** Pause before retrying the same model after a momentary error. */
+const RETRY_PAUSE_MS = 1_200;
 
 function toAppError(error: unknown): AppError {
   if (error instanceof AppError) return error;
@@ -94,6 +94,11 @@ export class GeminiClient implements LlmClient {
     this.ai = new GoogleGenAI({ apiKey, httpOptions: GEMINI_HTTP_OPTIONS });
   }
 
+  /**
+   * One attempt on the primary model, then at most one more: on the fallback model if one is
+   * configured, otherwise on the primary again after a short pause (Gemini's 503 "overloaded"
+   * is often momentary). 404 only switches model; it is never retried on the same one.
+   */
   async generate(request: LlmRequest): Promise<LlmResponse> {
     const startedAt = Date.now();
     try {
@@ -102,16 +107,19 @@ export class GeminiClient implements LlmClient {
       logFailure(this.models.primary, error, startedAt);
       const status = error instanceof ApiError ? error.status : null;
       const callTimedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
-      const worthFallback = callTimedOut || (status !== null && FALLBACK_STATUSES.has(status));
-      if (!this.models.fallback || !worthFallback || request.signal.aborted) {
-        throw toAppError(error);
-      }
-      const fallbackStartedAt = Date.now();
+      const transient = callTimedOut || status === 429 || status === 500 || status === 503;
+      const worthFallback = transient || status === 404;
+      const second = this.models.fallback ?? (transient && status !== 429 ? this.models.primary : null);
+      if (!second || !worthFallback || request.signal.aborted) throw toAppError(error);
+
+      if (second === this.models.primary) await new Promise((resolve) => setTimeout(resolve, RETRY_PAUSE_MS));
+      if (request.signal.aborted) throw toAppError(error);
+      const secondStartedAt = Date.now();
       try {
-        return await this.call(this.models.fallback, request);
-      } catch (fallbackError) {
-        logFailure(this.models.fallback, fallbackError, fallbackStartedAt);
-        throw toAppError(fallbackError);
+        return await this.call(second, request);
+      } catch (secondError) {
+        logFailure(second, secondError, secondStartedAt);
+        throw toAppError(secondError);
       }
     }
   }

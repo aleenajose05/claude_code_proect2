@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { CacheStatus, StockAnalysis } from "@/lib/analysis/build";
+import type { Intent } from "./intent";
 import type { TraceStep } from "./trace";
 import type { Explanation } from "@/lib/llm/schema";
 import { tickerSchema } from "@/lib/tools/schemas";
@@ -41,6 +42,8 @@ export type ChatResult =
       explanation: Explanation;
       /** "AI" when Gemini's explanation passed validation, otherwise the deterministic template. */
       explanationSource: "AI" | "FALLBACK";
+      /** What was asked and how much detail to show (brief / why / detailed). */
+      intent: Intent;
       notices: string[];
       context: ConversationContext;
       disclaimer: string;

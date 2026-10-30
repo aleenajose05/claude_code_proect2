@@ -1,4 +1,5 @@
 import { usd, type EvidenceItem, type StockAnalysis } from "@/lib/analysis/build";
+import type { DetailLevel, Intent } from "@/lib/chat/intent";
 import type { Explanation, StockExplanation } from "@/lib/llm/schema";
 
 /**
@@ -120,24 +121,73 @@ function answerForTwo([a, b]: readonly StockAnalysis[]): string {
   return parts.join(" ");
 }
 
-/** Direct answer first: the figure most likely asked for, then the trend. */
-function answerFor(stocks: readonly StockAnalysis[]): string {
-  if (stocks.length === 2) return answerForTwo(stocks);
-  const [stock] = stocks;
-  const parts = [priceSentence(stock, `${stock.company.companyName} (${stock.company.ticker})`)];
+/** "Tesla Inc" -> "Tesla"; keeps the ticker so the stock is unambiguous. */
+function shortName(stock: StockAnalysis): string {
+  const name = stock.company.companyName.replace(/[,.]?\s+(Inc|Corp|Corporation|Co|Company|Ltd|Plc|Holdings|Group)\.?$/i, "");
+  return `${name} (${stock.company.ticker})`;
+}
 
+function verdictSentence(stock: StockAnalysis): string {
+  const name = shortName(stock);
+  const conf = stock.confidence.level;
+  switch (stock.direction.direction) {
+    case "UP":
+      return `${name} looks bullish right now: its rule-based trend is UP, with ${conf} confidence.`;
+    case "DOWN":
+      return `${name} looks bearish right now: its rule-based trend is DOWN, with ${conf} confidence.`;
+    case "SIDEWAYS":
+      return `${name} is neither bullish nor bearish right now: its rule-based trend is SIDEWAYS, with ${conf} confidence.`;
+    default:
+      return `There isn't enough data to say whether ${name} is bullish or bearish right now.`;
+  }
+}
+
+function rangeSentence(stock: StockAnalysis): string | null {
   const asked = stock.askedTarget;
   if (asked) {
-    parts.push(
-      asked.range.available
-        ? `An exact price ${asked.horizon.label} from now can't be known, but based on its recent volatility it would typically trade between ${usd(asked.range.low)} and ${usd(asked.range.high)} over that period.`
-        : `An exact price ${asked.horizon.label} from now can't be known, and there isn't enough recent data to estimate a range.`,
-    );
-  } else if (stock.target.available) {
-    parts.push(`Over the next ~${stock.target.horizonSessions} trading days its usual range is ${usd(stock.target.low)} to ${usd(stock.target.high)}.`);
+    return asked.range.available
+      ? `An exact price ${asked.horizon.label} from now can't be known, but based on its recent volatility it would typically trade between ${usd(asked.range.low)} and ${usd(asked.range.high)} over that period.`
+      : `An exact price ${asked.horizon.label} from now can't be known, and there isn't enough recent data to estimate a range.`;
   }
-  parts.push(trendSentence(stock));
-  return parts.join(" ");
+  return stock.target.available
+    ? `Over the next ~${stock.target.horizonSessions} trading days its usual range is ${usd(stock.target.low)} to ${usd(stock.target.high)}.`
+    : null;
+}
+
+const DETAIL_TAIL: Record<DetailLevel, string> = {
+  brief: "",
+  why: "Here's why, with the main risks for balance.",
+  detailed: "Here's the full picture: the reasons, the risks, recent news and the price chart.",
+};
+
+/** Direct answer first: the figure the question asked for, then supporting context. */
+function answerFor(stocks: readonly StockAnalysis[], intent: Intent): string {
+  const tail = DETAIL_TAIL[intent.detail];
+  if (stocks.length === 2) return [answerForTwo(stocks), tail].filter(Boolean).join(" ");
+  const [stock] = stocks;
+  const range = rangeSentence(stock);
+  const trend = trendSentence(stock);
+  // "Why?" and "explain more" are about the verdict, so they lead with it.
+  const focus = intent.focus === "general" && intent.detail !== "brief" ? "direction" : intent.focus;
+  let parts: (string | null)[];
+  switch (focus) {
+    case "direction":
+      parts = [verdictSentence(stock), priceSentence(stock, "It"), range];
+      break;
+    case "future":
+    case "range":
+      parts = [range ?? "A price range can't be estimated from the available data.", priceSentence(stock, shortName(stock)), trend];
+      break;
+    case "news":
+      parts = [newsSummaryFor(stock), priceSentence(stock, shortName(stock)), trend];
+      break;
+    case "risks":
+      parts = [`The main risks for ${shortName(stock)}: ${risksFor(stock).map((r) => r.text).join(" ")}`, priceSentence(stock, "It")];
+      break;
+    default:
+      parts = [priceSentence(stock, shortName(stock)), trend, range];
+  }
+  return [...parts, tail].filter(Boolean).join(" ");
 }
 
 function followUpsFor(stocks: readonly StockAnalysis[]): string[] {
@@ -146,9 +196,9 @@ function followUpsFor(stocks: readonly StockAnalysis[]): string[] {
   return ["What are its biggest risks?", "What is the latest news about it?", `Compare it with ${other}`];
 }
 
-export function fallbackExplanation(stocks: readonly StockAnalysis[]): Explanation {
+export function fallbackExplanation(stocks: readonly StockAnalysis[], intent: Intent = { focus: "general", detail: "brief" }): Explanation {
   return {
-    answer: answerFor(stocks),
+    answer: answerFor(stocks, intent),
     followUps: followUpsFor(stocks),
     stocks: stocks.map((stock) => ({
       ticker: stock.company.ticker,

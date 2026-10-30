@@ -130,8 +130,13 @@ function Details({ stock, newsSummary }: { stock: StockAnalysis; newsSummary: st
   );
 }
 
+const WHY_CHIP = "Why?";
+const MORE_CHIP = "Explain in more detail";
+
 export function AnswerCard({ result, onAsk }: { result: ChatResult; onAsk?: (question: string) => void }) {
-  const [open, setOpen] = useState(false);
+  const detail = result.kind === "analysis" ? result.intent.detail : "brief";
+  // "Explain more" answers open the chart, news and sources straight away.
+  const [open, setOpen] = useState(detail === "detailed");
 
   if (result.kind !== "analysis") {
     return (
@@ -157,20 +162,28 @@ export function AnswerCard({ result, onAsk }: { result: ChatResult; onAsk?: (que
   }
 
   const two = result.stocks.length === 2;
+  const showReasons = detail !== "brief";
+  // Short answers offer "Why?" and "Explain more"; deeper answers offer only what is left.
+  const chips = [...(detail === "brief" ? [WHY_CHIP, MORE_CHIP] : detail === "why" ? [MORE_CHIP] : []), ...result.explanation.followUps]
+    .filter((q, i, all) => all.findIndex((x) => x.toLowerCase() === q.toLowerCase()) === i)
+    .slice(0, 4);
   return (
     <div className="space-y-4">
       <p className="text-base leading-relaxed whitespace-pre-line">{result.explanation.answer}</p>
+
+      {showReasons &&
+        result.stocks.map((stock) => {
+          const text = result.explanation.stocks.find((s) => s.ticker === stock.company.ticker);
+          return text ? <ShortExplanation key={stock.company.ticker} text={text} showTicker={two} /> : null;
+        })}
+
+      {showReasons && result.explanation.comparison && <p className="text-base leading-relaxed">{result.explanation.comparison}</p>}
 
       <div className="space-y-2">
         {result.stocks.map((stock) => (
           <KeyFigures key={stock.company.ticker} stock={stock} />
         ))}
       </div>
-
-      {result.stocks.map((stock) => {
-        const text = result.explanation.stocks.find((s) => s.ticker === stock.company.ticker);
-        return text ? <ShortExplanation key={stock.company.ticker} text={text} showTicker={two} /> : null;
-      })}
 
       {result.notices.length > 0 && (
         <div className="text-muted-foreground space-y-1 text-xs">
@@ -209,9 +222,9 @@ export function AnswerCard({ result, onAsk }: { result: ChatResult; onAsk?: (que
         )}
       </div>
 
-      {onAsk && result.explanation.followUps.length > 0 && (
+      {onAsk && chips.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {result.explanation.followUps.map((q) => (
+          {chips.map((q) => (
             <button key={q} type="button" onClick={() => onAsk(q)} className="hover:bg-accent rounded-full border px-3 py-1.5 text-left text-sm">
               {q}
             </button>

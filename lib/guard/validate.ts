@@ -28,10 +28,16 @@ const ADVICE_PATTERNS = [
   /\bwill (definitely|certainly|surely)\b/i,
 ];
 
-const CONTRADICTIONS: Record<string, RegExp> = {
-  UP: /\b(down ?trend|bearish|downward|heading down|pointing down)\b/i,
-  DOWN: /\b(up ?trend|bullish|upward|heading up|pointing up)\b/i,
-  SIDEWAYS: /\b(strong (up|down) ?trend|clearly (bullish|bearish))\b/i,
+/** Claims that contradict the server direction. Negations ("not bearish") are allowed. */
+const claims = (words: string) =>
+  new RegExp(
+    `\\b(is|are|looks?|looking|leans?|leaning|appears?|seems?|turning|turned|remains?)\\s+(?!not\\b|neither\\b)(\\w+\\s+)?(${words})\\b`,
+    "i",
+  );
+const CONTRADICTIONS: Record<string, RegExp[]> = {
+  UP: [claims("bearish"), /\b(in a|clear|strong) down ?trend\b/i, /\b(heading|pointing) down\b/i],
+  DOWN: [claims("bullish"), /\b(in a|clear|strong) up ?trend\b/i, /\b(heading|pointing) up\b/i],
+  SIDEWAYS: [/\bstrong (up|down) ?trend\b/i, /\bclearly (bullish|bearish)\b/i],
 };
 
 const NUMBER_PATTERN = /\d[\d,]*(?:\.\d+)?/g;
@@ -87,7 +93,7 @@ export function validateExplanation(raw: unknown, stocks: readonly StockAnalysis
       }
     }
     if (ADVICE_PATTERNS.some((p) => p.test(text))) problems.push(`${where}: contains investment advice or a guarantee`);
-    if (direction && CONTRADICTIONS[direction]?.test(text)) problems.push(`${where}: contradicts the ${direction} direction`);
+    if (direction && CONTRADICTIONS[direction]?.some((p) => p.test(text))) problems.push(`${where}: contradicts the ${direction} direction`);
   };
 
   explanation.stocks.forEach((stockText, i) => {

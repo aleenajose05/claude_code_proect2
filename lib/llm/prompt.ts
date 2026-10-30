@@ -27,7 +27,7 @@ export const TOOL_PHASE_INSTRUCTIONS = `${SYSTEM_PROMPT}
 
 Your job in this step is only to work out which US-listed stocks the user is asking about.
 - Call resolve_ticker once for each company or ticker the user mentions.
-- If the question refers to an earlier stock ("it", "that company", "compare it with…"), use the conversation context tickers given below; you may call resolve_ticker with that ticker to confirm it.
+- If the question refers to an earlier stock ("it", "that company", "compare it with…"), or is a short follow-up such as "why?" or "explain more", use the conversation context tickers given below; you may call resolve_ticker with that ticker to confirm it.
 - At most two stocks can be analysed per question. Do not call resolve_ticker more than twice.
 - You may call get_quote, get_price_history or get_news_sentiment, but the application fetches all required data itself, so this is optional.
 - If the question is not about a publicly traded US stock, call no tools and reply with the single word OUT_OF_SCOPE.
@@ -37,7 +37,7 @@ export const EXPLANATION_INSTRUCTIONS = `${SYSTEM_PROMPT}
 
 You will receive the user's question and, for each stock, server-verified evidence items. Each item has an id (like "M:SMA20" or "N:2"), a label and a value.
 Write a reply as JSON matching the response schema, in the friendly, direct style of a helpful chat assistant:
-- answer: FIRST answer exactly what the user asked, in 2 to 4 plain sentences, before any background.
+- answer: FIRST answer exactly what the user asked, before any background. Follow the "howToAnswer" instruction in the data for what to lead with and how long to be.
   · Lead with the specific figure they asked for (price, change, direction, range), copied exactly from the evidence.
   · If they ask for a future price ("after 60 days", "next month"), say plainly that an exact future price cannot be known, then give the range from M:TARGET_ASKED (or M:TARGET if there is no M:TARGET_ASKED) and the current price.
   · If they ask "bullish or bearish", answer with the direction first (UP = leaning bullish, DOWN = leaning bearish, SIDEWAYS = no clear trend) and the confidence level.

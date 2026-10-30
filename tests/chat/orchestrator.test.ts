@@ -187,6 +187,32 @@ describe("runChat", () => {
     expect(tooMany.kind === "clarification" && tooMany.message).toContain("at most two");
   });
 
+  it("leads with what was asked and follows up with why / more detail", async () => {
+    installMarketFakes();
+    const noExplanation = (tickerCalls: string[]) =>
+      fakeLlm((request, i) =>
+        request.tools
+          ? i === 0 && tickerCalls.length
+            ? { functionCalls: tickerCalls.map((q) => call("resolve_ticker", { query: q })) }
+            : { text: "DONE" }
+          : { text: "not json" },
+      );
+
+    const verdict = await run("Is Apple looking bullish or bearish?", noExplanation(["Apple"])).promise;
+    expect(verdict.kind).toBe("analysis");
+    if (verdict.kind !== "analysis") return;
+    expect(verdict.intent).toEqual({ focus: "direction", detail: "brief" });
+    expect(verdict.explanation.answer.startsWith("Apple (AAPL) looks bullish right now")).toBe(true);
+
+    // "Why?" with no stock named: the model links nothing, the app uses the stock being discussed.
+    const why = await run("Why?", noExplanation([]), { context: verdict.context }).promise;
+    expect(why.kind === "analysis" && why.stocks[0].company.ticker).toBe("AAPL");
+    expect(why.kind === "analysis" && why.intent.detail).toBe("why");
+
+    const more = await run("Explain in more detail", noExplanation([]), { context: verdict.context }).promise;
+    expect(more.kind === "analysis" && more.intent.detail).toBe("detailed");
+  });
+
   it("reports time-budget exhaustion as a typed error", async () => {
     installMarketFakes();
     expect(await run("Analyse AAPL", standardScript(["AAPL"], () => "")).promise.then((r) => r.kind)).not.toBe("error");

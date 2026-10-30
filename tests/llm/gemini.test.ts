@@ -54,3 +54,25 @@ describe("GeminiClient", () => {
     expect(calls).toEqual(["model-a", "model-b"]);
   });
 });
+
+describe("GeminiClient retries", () => {
+  const overloaded = () =>
+    new Response(JSON.stringify({ error: { code: 503, message: "overloaded", status: "UNAVAILABLE" } }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+
+  it("retries the same model once after a 503 when no fallback is configured", async () => {
+    let n = 0;
+    const calls = stubGemini(() => (n++ === 0 ? overloaded() : ok("DONE")));
+    const reply = await new GeminiClient("test-key", { primary: "model-a" }).generate(request());
+    expect(reply.text).toBe("DONE");
+    expect(calls).toEqual(["model-a", "model-a"]);
+  });
+
+  it("does not hammer the same model after a quota error", async () => {
+    const calls = stubGemini(() => quota());
+    await expect(new GeminiClient("test-key", { primary: "model-a" }).generate(request())).rejects.toMatchObject({ code: "PROVIDER_QUOTA" });
+    expect(calls).toEqual(["model-a"]);
+  });
+});
