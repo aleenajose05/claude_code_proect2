@@ -13,10 +13,10 @@ import { MessageBubble, type Message } from "./MessageBubble";
 const MAX_LENGTH = 500;
 
 const SUGGESTIONS = [
-  { icon: TrendingUp, title: "Bullish or bearish?", question: "Is Tesla looking bullish or bearish?" },
-  { icon: CalendarRange, title: "Where in 60 days?", question: "Where could Microsoft stock be in 60 days?" },
-  { icon: Scale, title: "Compare two stocks", question: "Compare NVIDIA with Apple." },
-  { icon: Newspaper, title: "News and risks", question: "What are the latest news and risks affecting Google stock?" },
+  { icon: TrendingUp, question: "Is Tesla bullish or bearish?" },
+  { icon: CalendarRange, question: "Where could Microsoft be in 60 days?" },
+  { icon: Scale, question: "Compare NVIDIA with Apple" },
+  { icon: Newspaper, question: "Latest news on Google" },
 ];
 
 function greetingFor(hour: number): string {
@@ -224,34 +224,30 @@ export function Chat({ showLogout }: { showLogout: boolean }) {
 
       {empty ? (
         <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-8 px-4 pb-20">
-          <div className="animate-in fade-in slide-in-from-bottom-2 space-y-3 text-center duration-500">
-            <BrandMark className="mx-auto size-10 rounded-xl [&_svg]:size-5" />
+          <div className="animate-in fade-in slide-in-from-bottom-2 space-y-2 text-center duration-500">
             <h2 className="font-serif text-3xl font-normal tracking-tight sm:text-[2.6rem]">
               {greeting ? `${greeting}.` : "\u00a0"}
             </h2>
-            <p className="text-muted-foreground mx-auto max-w-md text-[15px]">
-              Ask anything about a US stock. Answers use real market data, with every number calculated by the app.
-            </p>
+            <p className="text-muted-foreground text-[15px]">Ask about any US stock.</p>
           </div>
           {composer}
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-            {SUGGESTIONS.map(({ icon: Icon, title, question }) => (
+          <div className="flex flex-wrap justify-center gap-2">
+            {SUGGESTIONS.map(({ icon: Icon, question }) => (
               <button
                 key={question}
                 type="button"
                 onClick={() => void ask(question)}
                 disabled={busy}
-                className="bg-card/60 hover:bg-card group flex items-start gap-3 rounded-2xl border p-3.5 text-left transition-all hover:shadow-[0_6px_20px_-12px_rgba(30,25,15,0.25)]"
+                className="bg-card/60 hover:bg-card text-muted-foreground hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors"
               >
-                <Icon className="text-brand mt-0.5 size-4 shrink-0" aria-hidden />
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium">{title}</span>
-                  <span className="text-muted-foreground block text-sm">{question}</span>
-                </span>
+                <Icon className="text-brand size-4 shrink-0" aria-hidden />
+                {question}
               </button>
             ))}
           </div>
-          <p className="text-muted-foreground text-center text-xs">Not financial advice. Please don&apos;t share personal information.</p>
+          <p className="text-muted-foreground text-center text-xs">
+            Real market data, every number calculated by the app. Not financial advice.
+          </p>
         </main>
       ) : (
         <>
