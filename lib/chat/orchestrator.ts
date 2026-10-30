@@ -61,6 +61,8 @@ const RESERVE_AFTER_PHASE_A_MS = 20_000;
 const PHASE_A_CALL_TIMEOUT_MS = 10_000;
 /** Words that mean the question refers back to the stock already being discussed. */
 const FOLLOW_UP_WORDS = /\b(it|its|it's|this|that|they|them|their|the stock|the company|same)\b/i;
+/** Pause before re-asking for the explanation after Gemini reported being overloaded. */
+const EXPLANATION_RETRY_PAUSE_MS = 2_000;
 /** Minimum time left to attempt (or retry) the explanation call. */
 const MIN_TIME_FOR_EXPLANATION_MS = 8_000;
 
@@ -388,11 +390,13 @@ export async function runChat(request: ChatRequest, deps: OrchestratorDeps): Pro
   const intent = detectIntent(request.question, { stockCount: stocks.length, hasHorizon: horizon !== null });
   const { explanation, source, reason } = await explain(request.question, intent, stocks, deps, llmSignal, recordUsage);
 
-  const notices = [
+  // Notices the reader needs (share-class defaults, mixed freshness) stay with the answer;
+  // how the answer was produced goes to the details panel.
+  const notices = stocks.flatMap((s) => (s.company.notice ? [s.company.notice] : []));
+  const technicalNotes = [
     ...(usedKeywordFallback ? ["The AI service was slow or unavailable, so the stocks were identified by name or ticker matching."] : []),
-    ...stocks.flatMap((s) => (s.company.notice ? [s.company.notice] : [])),
     ...(source === "FALLBACK"
-      ? [`The AI explanation was not used (${reason ?? "unknown reason"}), so a rule-based summary is shown instead. All numbers come from the app either way.`]
+      ? [`This answer was written by the app's rule-based summary because the AI explanation was not available (${reason ?? "unknown reason"}). All numbers come from the app either way.`]
       : []),
   ];
   if (stocks.length === 2) {
@@ -410,6 +414,7 @@ export async function runChat(request: ChatRequest, deps: OrchestratorDeps): Pro
     explanationSource: source,
     intent,
     notices,
+    technicalNotes,
     context: nextContext(tickers, context),
     disclaimer: DISCLAIMER,
   };
@@ -505,7 +510,13 @@ async function explain(
       reason = safeMessage(error);
       trace.mark("Explanation call failed", reason, "error");
       console.warn(`[explanation] Gemini call failed: ${safeMessage(error)}`);
-      break;
+      // Overload (503/500) and time-outs are often momentary: pause and try the explanation
+      // once more if there is time. Quota and key errors will not improve, so stop.
+      const busy =
+        error instanceof AppError &&
+        (error.code === "PROVIDER_TIMEOUT" || (error.code === "PROVIDER_ERROR" && (error.details.status === 503 || error.details.status === 500)));
+      if (!busy || attempt === 2) break;
+      await new Promise((resolve) => setTimeout(resolve, EXPLANATION_RETRY_PAUSE_MS));
     }
   }
   trace.validation = "FALLBACK";

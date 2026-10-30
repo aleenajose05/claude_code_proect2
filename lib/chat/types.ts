@@ -44,7 +44,10 @@ export type ChatResult =
       explanationSource: "AI" | "FALLBACK";
       /** What was asked and how much detail to show (brief / why / detailed). */
       intent: Intent;
+      /** Shown with the answer (e.g. the GOOGL default share class). */
       notices: string[];
+      /** How the answer was produced (AI unavailable, keyword matching); shown in the details panel. */
+      technicalNotes: string[];
       context: ConversationContext;
       disclaimer: string;
     }

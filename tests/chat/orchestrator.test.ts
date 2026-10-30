@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { noCache, type DataCache } from "@/lib/chat/cache";
+import { AppError } from "@/lib/errors";
 import { runChat } from "@/lib/chat/orchestrator";
 import { Trace } from "@/lib/chat/trace";
 import { chatRequestSchema, DISCLAIMER } from "@/lib/chat/types";
@@ -71,7 +72,7 @@ describe("runChat", () => {
     expect(result.kind === "analysis" && result.explanationSource).toBe("FALLBACK");
     expect(trace.validation).toBe("FALLBACK");
     expect(trace.steps.filter((s) => s.name.startsWith("Gemini explanation"))).toHaveLength(2);
-    if (result.kind === "analysis") expect(result.notices.join(" ")).toContain("rule-based summary");
+    if (result.kind === "analysis") expect(result.technicalNotes.join(" ")).toContain("rule-based summary");
   });
 
   it("tells the user why the AI explanation was not used", async () => {
@@ -80,7 +81,21 @@ describe("runChat", () => {
       request.tools ? (i === 0 ? { functionCalls: [call("resolve_ticker", { query: "AAPL" })] } : { text: "DONE" }) : { text: '{"stocks":[{"tick', finishReason: "MAX_TOKENS" },
     );
     const result = await run("Analyse AAPL", cutOff).promise;
-    expect(result.kind === "analysis" && result.notices.join(" ")).toContain("cut off");
+    expect(result.kind === "analysis" && result.technicalNotes.join(" ")).toContain("cut off");
+  });
+
+  it("asks for the explanation again after Gemini reports being overloaded", async () => {
+    installMarketFakes();
+    let explanationCalls = 0;
+    const llm = fakeLlm((request, i) => {
+      if (request.tools) return i === 0 ? { functionCalls: [call("resolve_ticker", { query: "AAPL" })] } : { text: "DONE" };
+      if (explanationCalls++ === 0) throw new AppError("PROVIDER_ERROR", "Gemini returned HTTP 503", { provider: "Gemini", status: 503 });
+      return { text: goodExplanation(["AAPL"]) };
+    });
+    const { promise, trace } = run("Analyse AAPL", llm);
+    const result = await promise;
+    expect(result.kind === "analysis" && result.explanationSource).toBe("AI");
+    expect(trace.validation).toBe("PASSED_AFTER_RETRY");
   });
 
   it("accepts a valid answer on the retry", async () => {
@@ -175,7 +190,7 @@ describe("runChat", () => {
     if (byTicker.kind === "analysis") {
       expect(byTicker.stocks[0].company.ticker).toBe("AAPL");
       expect(byTicker.explanationSource).toBe("FALLBACK");
-      expect(byTicker.notices.join(" ")).toContain("identified by name or ticker matching");
+      expect(byTicker.technicalNotes.join(" ")).toContain("identified by name or ticker matching");
     }
     const byName = await run("Compare Microsoft with Apple", failing()).promise;
     expect(byName.kind === "analysis" && byName.stocks.map((s) => s.company.ticker)).toEqual(["MSFT", "AAPL"]);

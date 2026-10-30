@@ -56,7 +56,7 @@ export function MessageBubble({
       <Avatar />
       <div className="min-w-0 flex-1 space-y-2">
         {message.result ? (
-          <AnswerCard result={message.result} onAsk={onAsk} />
+          <AnswerCard result={message.result} onAsk={onAsk} requestId={message.requestId} />
         ) : message.error ? (
           <div role="alert" className="space-y-2 text-base">
             <p>{message.error}</p>
@@ -71,7 +71,7 @@ export function MessageBubble({
             {progressLabel(message.steps)}
           </p>
         )}
-        {message.requestId && <p className="text-muted-foreground/70 text-[11px]">Request ID: {message.requestId}</p>}
+        {message.error && message.requestId && <p className="text-muted-foreground/70 text-[11px]">Request ID: {message.requestId}</p>}
       </div>
     </div>
   );
