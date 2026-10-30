@@ -142,7 +142,15 @@ export function buildStockAnalysis(input: {
     if (value !== null) evidence.push({ id, label, value });
   };
   add("M:PRICE", "Latest price", quote ? usd(quote.price) : null);
-  add("M:CHANGE", "Change vs previous close", quote ? `${usd(quote.change)} (${pct(quote.changePercent)})` : null);
+  add(
+    "M:CHANGE",
+    "Change vs previous close",
+    !quote
+      ? null
+      : quote.change === 0
+        ? "unchanged"
+        : `${quote.change > 0 ? "up" : "down"} ${usd(Math.abs(quote.change))} (${Math.abs(quote.changePercent).toFixed(2)}%)`,
+  );
   add("M:SMA20", "20-day simple moving average", indicators?.sma20 != null ? usd(indicators.sma20) : null);
   add("M:SMA50", "50-day simple moving average", indicators?.sma50 != null ? usd(indicators.sma50) : null);
   add("M:R90", "Return over the 90-day window", indicators?.return90Pct != null ? pct(indicators.return90Pct) : null);

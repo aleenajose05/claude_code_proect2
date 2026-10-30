@@ -14,6 +14,11 @@ function value(stock: StockAnalysis, id: string): string | null {
   return stock.evidence.find((e: EvidenceItem) => e.id === id)?.value ?? null;
 }
 
+/** Plain-language wording for the server's labels ("UP" -> "points upward", "HIGH" -> "high"). */
+const TREND_WORDS: Record<string, string> = { UP: "points upward", DOWN: "points downward", SIDEWAYS: "has no clear direction" };
+const trendWords = (d: string) => TREND_WORDS[d] ?? "could not be determined";
+const conf = (stock: StockAnalysis) => stock.confidence.level.toLowerCase();
+
 const relation = (signal: number | null) => (signal === 1 ? "above" : signal === -1 ? "below" : "close to");
 
 function reasonsFor(stock: StockAnalysis): Point[] {
@@ -40,8 +45,8 @@ function reasonsFor(stock: StockAnalysis): Point[] {
   if (change) points.push({ text: `Compared with the previous close, the price moved ${change}.`, evidence: ["M:CHANGE"] });
   const range = value(stock, "M:HIGH90") && value(stock, "M:LOW90");
   if (range) points.push({ text: `In the 90-day window the price ranged from ${value(stock, "M:LOW90")} to ${value(stock, "M:HIGH90")}.`, evidence: ["M:LOW90", "M:HIGH90"] });
-  points.push({ text: `The overall direction is ${stock.direction.direction}, set by fixed rules rather than by the AI.`, evidence: ["M:DIRECTION"] });
-  points.push({ text: `The confidence level is ${stock.confidence.level}, based on how complete and consistent the data is.`, evidence: ["M:CONFIDENCE"] });
+  points.push({ text: `The overall trend ${trendWords(stock.direction.direction)}, set by fixed rules rather than by the AI.`, evidence: ["M:DIRECTION"] });
+  points.push({ text: `Confidence is ${conf(stock)}, based on how complete and consistent the data is.`, evidence: ["M:CONFIDENCE"] });
   points.push({ text: "Some of the data needed for a fuller explanation is unavailable for this stock.", evidence: ["M:CONFIDENCE"] });
   return points.slice(0, 3);
 }
@@ -75,13 +80,13 @@ function directionTextFor(stock: StockAnalysis): string {
   if (stock.direction.direction === "UNAVAILABLE") {
     return "The price direction could not be determined because some required price data is unavailable.";
   }
-  return `Based on the moving averages, the 90-day return and recent news, the rule-based direction is ${stock.direction.direction}.`;
+  return `Based on the moving averages, the 90-day return and recent news, the rule-based trend ${trendWords(stock.direction.direction)}.`;
 }
 
 function comparisonFor(stocks: readonly StockAnalysis[]): string {
   const [a, b] = stocks;
   const r = (s: StockAnalysis) => value(s, "M:R90") ?? "unavailable";
-  return `Over the 90-day window, ${a.company.ticker} changed by ${r(a)} and ${b.company.ticker} by ${r(b)}. The rule-based direction is ${a.direction.direction} for ${a.company.ticker} and ${b.direction.direction} for ${b.company.ticker}, with ${a.confidence.level} and ${b.confidence.level} confidence respectively.`;
+  return `Over the 90-day window, ${a.company.ticker} changed by ${r(a)} and ${b.company.ticker} by ${r(b)}. The rule-based trend ${trendWords(a.direction.direction)} for ${a.company.ticker} and ${trendWords(b.direction.direction)} for ${b.company.ticker}, with ${conf(a)} and ${conf(b)} confidence respectively.`;
 }
 
 const LEANING: Record<string, string> = {
@@ -93,7 +98,7 @@ const LEANING: Record<string, string> = {
 function trendSentence(stock: StockAnalysis): string {
   const { direction } = stock.direction;
   if (direction === "UNAVAILABLE") return "Its trend could not be determined from the available data.";
-  return `Its rule-based trend is ${direction} (${LEANING[direction]}), with ${stock.confidence.level} confidence.`;
+  return `Its rule-based trend ${trendWords(direction)} (${LEANING[direction]}), with ${conf(stock)} confidence.`;
 }
 
 function priceSentence(stock: StockAnalysis, name: string): string {
@@ -172,8 +177,8 @@ function answerForTwo([a, b]: readonly StockAnalysis[], tail: string): string {
   const r90 = (s: StockAnalysis) => value(s, "M:R90");
   const confidence =
     a.confidence.level === b.confidence.level
-      ? `Confidence is ${a.confidence.level} for both.`
-      : `Confidence is ${a.confidence.level} for ${a.company.ticker} and ${b.confidence.level} for ${b.company.ticker}.`;
+      ? `Confidence is ${conf(a)} for both.`
+      : `Confidence is ${conf(a)} for ${a.company.ticker} and ${conf(b)} for ${b.company.ticker}.`;
   return paragraphs(lead, [
     priceSentence(a, a.company.ticker),
     priceSentence(b, b.company.ticker),
@@ -200,7 +205,7 @@ function answerFor(stocks: readonly StockAnalysis[], intent: Intent): string {
   switch (focus) {
     case "direction":
       return paragraphs(verdictSentence(stock, name), [
-        stock.direction.direction === "UNAVAILABLE" ? null : `Its rule-based trend is ${stock.direction.direction}, with ${stock.confidence.level} confidence.`,
+        stock.direction.direction === "UNAVAILABLE" ? null : `Its rule-based trend ${trendWords(stock.direction.direction)}, with ${conf(stock)} confidence.`,
         priceSentence(stock, "It"),
         standardRangeSentence(stock),
         tail,

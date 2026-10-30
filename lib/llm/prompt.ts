@@ -48,6 +48,7 @@ Write a reply as JSON matching the response schema, in the friendly, direct styl
   · Do not start with "Based on the data" or similar filler. Do not use headings or bullet points in the answer.
 - stocks: for each stock, in the same order as given: a one-sentence directionExplanation, exactly three short reasons and exactly two short risks (one sentence each), and a one-sentence newsSummary.
 - Every reason and risk must cite one or more evidence ids from that stock in "evidence".
+- Write like a person, not a report: describe the direction and confidence in plain lowercase words (for example "an upward trend with high confidence", "a downward trend", "no clear trend"), never as capitalised labels like "UP" or "HIGH". Say "up" or "down" instead of using minus signs.
 - Only use numbers exactly as they appear in the evidence values. Do not compute new numbers, dates or percentages.
 - The direction, target ranges and confidence level are fixed by the application. Describe them; never contradict or change them.
 - comparison: when two stocks are given, two sentences comparing only metrics both stocks have; otherwise null.
