@@ -23,6 +23,10 @@ export const envSchema = z
     GEMINI_MODEL: nonEmpty("GEMINI_MODEL"),
     GEMINI_FALLBACK_MODEL: z.string().trim().min(1).optional(),
 
+    // Optional backup AI, used only when Gemini fails (https://openrouter.ai/keys)
+    OPENROUTER_API_KEY: z.string().trim().min(1).optional(),
+    OPENROUTER_MODEL: z.string().trim().min(1).default("openrouter/free"),
+
     // Market data
     FINNHUB_API_KEY: nonEmpty("FINNHUB_API_KEY"),
     TIINGO_API_KEY: nonEmpty("TIINGO_API_KEY"),
@@ -109,6 +113,8 @@ function readProcessEnv(): Record<string, string | undefined> {
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     GEMINI_MODEL: process.env.GEMINI_MODEL,
     GEMINI_FALLBACK_MODEL: process.env.GEMINI_FALLBACK_MODEL,
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+    OPENROUTER_MODEL: process.env.OPENROUTER_MODEL,
     FINNHUB_API_KEY: process.env.FINNHUB_API_KEY,
     TIINGO_API_KEY: process.env.TIINGO_API_KEY,
     ALPHA_VANTAGE_API_KEY: process.env.ALPHA_VANTAGE_API_KEY,

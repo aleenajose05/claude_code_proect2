@@ -1,6 +1,8 @@
 import "server-only";
 
+import { LlmChain } from "@/lib/llm/chain";
 import { GeminiClient } from "@/lib/llm/gemini";
+import { OpenRouterClient } from "@/lib/llm/openrouter";
 import { getEnv } from "@/lib/env";
 import { providerGuard } from "@/lib/ratelimit";
 import { redisCache } from "@/lib/store/cache";
@@ -14,7 +16,10 @@ export function createChatServices(signal: AbortSignal, onCacheError?: (operatio
   return {
     redis,
     tools: createToolContext({ signal, guard: providerGuard(redis) }),
-    llm: new GeminiClient(env.GEMINI_API_KEY, { primary: env.GEMINI_MODEL, fallback: env.GEMINI_FALLBACK_MODEL }),
+    llm: new LlmChain([
+      new GeminiClient(env.GEMINI_API_KEY, { primary: env.GEMINI_MODEL, fallback: env.GEMINI_FALLBACK_MODEL }),
+      ...(env.OPENROUTER_API_KEY ? [new OpenRouterClient(env.OPENROUTER_API_KEY, env.OPENROUTER_MODEL)] : []),
+    ]),
     cache: redisCache(redis, onCacheError),
   };
 }

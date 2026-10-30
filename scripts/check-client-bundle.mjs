@@ -4,7 +4,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const SECRET_VARS = [
-  "GEMINI_API_KEY", "FINNHUB_API_KEY", "TIINGO_API_KEY", "ALPHA_VANTAGE_API_KEY",
+  "GEMINI_API_KEY", "OPENROUTER_API_KEY", "FINNHUB_API_KEY", "TIINGO_API_KEY", "ALPHA_VANTAGE_API_KEY",
   "UPSTASH_REDIS_REST_TOKEN", "SESSION_SECRET", "DEBUG_PASSWORD", "DEMO_PASSWORD",
 ];
 // Strings that only server code should contain.

@@ -102,6 +102,8 @@ All of these are **server-side only**. Never add the `NEXT_PUBLIC_` prefix. `lib
 | `GEMINI_API_KEY` | yes | From https://aistudio.google.com/apikey |
 | `GEMINI_MODEL` | yes | e.g. `gemini-3.8-flash`. New API keys can't use Gemini 2.5 models (they return HTTP 404) |
 | `GEMINI_FALLBACK_MODEL` | no | e.g. `gemini-3.6-flash`; used if the primary model fails with 404, 429 or 5xx |
+| `OPENROUTER_API_KEY` | no | Backup AI used only when Gemini fails: https://openrouter.ai/keys (free models are capped at about 50 requests/day) |
+| `OPENROUTER_MODEL` | no | Defaults to `openrouter/free`, which picks a free model that supports tool calling and structured output |
 | `FINNHUB_API_KEY` | yes | https://finnhub.io/register |
 | `TIINGO_API_KEY` | yes | https://www.tiingo.com/account/api/token |
 | `ALPHA_VANTAGE_API_KEY` | no | Fallback only: https://www.alphavantage.co/support/#api-key |
