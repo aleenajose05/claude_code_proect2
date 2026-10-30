@@ -57,6 +57,21 @@ Browser ──(question ≤500 chars + ticker context only)──► POST /api/c
 
 ---
 
+## 2a. How answers look
+
+StockLens AI replies like a chat assistant:
+
+1. **A direct answer first**, in plain sentences, leading with what was asked:
+   - "bullish or bearish?" → the verdict
+   - "what's the price?" → today's price and change
+   - "in 60 days?" → the range for that period (never a single made-up future price)
+   - "news?" → the news, "risks?" → the risks, two stocks → the comparison
+2. **A small key-figures box**: price, change, direction, range, confidence.
+3. **Depth on request.** Short answers offer **Why?** (3 reasons + 2 risks, a balanced view) and **Explain in more detail** (everything, with the chart, news and sources opened). Bare follow-ups like "Why?" refer to the stock being discussed.
+4. **Chart & sources** (90-day chart, data table, news with sentiment, providers and timestamps, the full disclaimer, how the answer was produced) and **Copy**.
+
+**AI providers, in order:** Gemini main model → Gemini backup model → OpenRouter (only if `OPENROUTER_API_KEY` is set) → the app's rule-based answer. Busy errors (503) are retried once; quota errors are not. Whichever writes the text, every number comes from the app.
+
 ## 3. Project structure
 
 ```text
